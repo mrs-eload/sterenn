@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 Operating guide for AI agents (and humans) working in this repo. Read this, then
-`docs/STATUS.md` for current state, then the ADRs in `docs/adr/` for the *why*.
+`docs/STATUS.md` for current state, `docs/ROADMAP.md` for all subjects and build
+order, then the ADRs in `docs/adr/` for the *why*.
 
 ## What this project is
 
