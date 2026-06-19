@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeNight } from './analyzeNight.ts';
-import type { HourPoint, DarkWindow } from './types.ts';
+import type { HourPoint, NightWindow } from './types.ts';
 
 const H = 3_600_000;
 const base = Date.parse('2026-06-19T22:00:00Z');
-const dark: DarkWindow = { start: base, end: base + 8 * H };
+const night: NightWindow = { start: base, end: base + 8 * H };
 
 const mk = (
   clouds: number[],
@@ -18,19 +18,19 @@ const mk = (
 
 describe('analyzeNight', () => {
   it('does NOT call a night good off a single clear hour (the Ouranos bug)', () => {
-    const r = analyzeNight(mk([90, 90, 5, 90, 90, 90, 90, 90, 90]), dark);
+    const r = analyzeNight(mk([90, 90, 5, 90, 90, 90, 90, 90, 90]), night);
     expect(r.good).toBe(false);
     expect(r.longestBlock?.lengthHours).toBe(1);
   });
 
   it('calls a solid 3h clear block good', () => {
-    const r = analyzeNight(mk([90, 90, 5, 5, 5, 90, 90, 90, 90]), dark);
+    const r = analyzeNight(mk([90, 90, 5, 5, 5, 90, 90, 90, 90]), night);
     expect(r.good).toBe(true);
     expect(r.longestBlock?.lengthHours).toBe(3);
   });
 
   it('bridges one isolated cloud hour inside a 5h block (budget 1)', () => {
-    const r = analyzeNight(mk([90, 5, 5, 80, 5, 5, 90, 90, 90]), dark, {
+    const r = analyzeNight(mk([90, 5, 5, 80, 5, 5, 90, 90, 90]), night, {
       cloudGapBudget: 1,
     });
     expect(r.good).toBe(true);
@@ -39,7 +39,7 @@ describe('analyzeNight', () => {
   });
 
   it('breaks when two adjacent cloud hours exceed the gap budget', () => {
-    const r = analyzeNight(mk([90, 5, 5, 80, 80, 5, 5, 90, 90]), dark, {
+    const r = analyzeNight(mk([90, 5, 5, 80, 80, 5, 5, 90, 90]), night, {
       cloudGapBudget: 1,
       minBlockHours: 3,
     });
@@ -48,7 +48,7 @@ describe('analyzeNight', () => {
   });
 
   it('treats precipitation as a hard break even with budget to spare', () => {
-    const r = analyzeNight(mk([5, 5, 5, 5, 5, 5, 5, 5, 5], { 4: 80 }), dark, {
+    const r = analyzeNight(mk([5, 5, 5, 5, 5, 5, 5, 5, 5], { 4: 80 }), night, {
       cloudGapBudget: 3,
     });
     expect(r.good).toBe(true);
@@ -56,7 +56,7 @@ describe('analyzeNight', () => {
   });
 
   it('trims a trailing bridged cloud hour off the block', () => {
-    const r = analyzeNight(mk([5, 5, 80, 90, 90, 90, 90, 90, 90]), dark, {
+    const r = analyzeNight(mk([5, 5, 80, 90, 90, 90, 90, 90, 90]), night, {
       cloudGapBudget: 1,
     });
     expect(r.longestBlock?.lengthHours).toBe(2);
@@ -64,15 +64,15 @@ describe('analyzeNight', () => {
   });
 
   it('returns no block when nothing is clear', () => {
-    const r = analyzeNight(mk([90, 90, 90, 90, 90, 90, 90, 90, 90]), dark);
+    const r = analyzeNight(mk([90, 90, 90, 90, 90, 90, 90, 90, 90]), night);
     expect(r.good).toBe(false);
     expect(r.longestBlock).toBeNull();
   });
 
-  it('ignores clear hours outside the dark window', () => {
+  it('ignores clear hours outside the night window', () => {
     const hours = mk([90, 90, 90, 90, 90, 90, 90, 90, 90]);
     hours.unshift({ time: base - H, cloudCover: 0 });
-    const r = analyzeNight(hours, dark);
+    const r = analyzeNight(hours, night);
     expect(r.good).toBe(false);
     expect(r.hours.length).toBe(9);
   });

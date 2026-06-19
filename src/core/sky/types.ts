@@ -10,10 +10,17 @@ export interface HourPoint {
   precipMm?: number;
 }
 
-/** Astronomical dark window: sun below -18°. */
-export interface DarkWindow {
-  /** Astronomical dusk (epoch ms). */
+/**
+ * The night observing window: civil dusk → civil dawn (sun below -6°).
+ *
+ * Civil, not astronomical (-18°), on purpose: at mid-latitudes in summer the
+ * sun never reaches -18°, so a true-dark window is often null or minutes long.
+ * Dusk→dawn always gives a usable span so the observer can judge a marginal
+ * night themselves rather than being told "no night". See ADR 0003.
+ */
+export interface NightWindow {
+  /** Civil dusk, evening (epoch ms). */
   start: number;
-  /** Astronomical dawn (epoch ms). */
+  /** Civil dawn, next morning (epoch ms). */
   end: number;
 }

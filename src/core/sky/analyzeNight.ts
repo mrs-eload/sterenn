@@ -1,12 +1,12 @@
 /**
- * analyzeNight — find the longest *usable* clear block inside the dark window.
+ * analyzeNight — find the longest *usable* clear block inside the night window.
  *
  * The point Ouranos misses: a night isn't "good" because one hour is clear.
  * Astrophotography needs a contiguous run of clear sky long enough to integrate.
  * So we measure run-length, not existence.
  *
  * Rules:
- *  - Only hours inside the dark window count.
+ *  - Only hours inside the night window count.
  *  - Clouds are tolerant: isolated bad-cloud hours can be bridged via a gap budget.
  *  - Precipitation is a HARD break: it severs the run regardless of remaining budget.
  *  - A night is "good" only if the longest usable block >= minBlockHours.
@@ -14,8 +14,8 @@
  * Pure. No fetch, no dates-from-the-network. Feed it parsed data, unit-test it freely.
  */
 
-import type { HourPoint, DarkWindow } from './types.ts';
-export type { HourPoint, DarkWindow };
+import type { HourPoint, NightWindow } from './types.ts';
+export type { HourPoint, NightWindow };
 
 export interface AnalyzeConfig {
   /** Cloud cover at or below this is "clear". Default 20(%). */
@@ -97,7 +97,6 @@ function findBlocks(hours: ClassifiedHour[], cfg: AnalyzeConfig): ClearBlock[] {
 
   let start = -1;
   let lastClear = -1;
-  let bridged = 0;
   let budget = cfg.cloudGapBudget;
 
   const flush = () => {
@@ -120,7 +119,6 @@ function findBlocks(hours: ClassifiedHour[], cfg: AnalyzeConfig): ClearBlock[] {
   const reset = () => {
     start = -1;
     lastClear = -1;
-    bridged = 0;
     budget = cfg.cloudGapBudget;
   };
 
@@ -146,7 +144,6 @@ function findBlocks(hours: ClassifiedHour[], cfg: AnalyzeConfig): ClearBlock[] {
     }
     if (budget > 0) {
       budget--;
-      bridged++;
       // stays open, but lastClear does NOT advance — trailing trim is automatic
       continue;
     }
@@ -161,14 +158,14 @@ function findBlocks(hours: ClassifiedHour[], cfg: AnalyzeConfig): ClearBlock[] {
 
 export function analyzeNight(
   hourly: HourPoint[],
-  dark: DarkWindow,
+  night: NightWindow,
   config: Partial<AnalyzeConfig> = {},
 ): NightAnalysis {
   const cfg: AnalyzeConfig = { ...DEFAULT_CONFIG, ...config };
 
-  // Keep only hours strictly inside the dark window, sorted by time.
+  // Keep only hours strictly inside the night window, sorted by time.
   const windowHours = hourly
-    .filter((h) => h.time >= dark.start && h.time <= dark.end)
+    .filter((h) => h.time >= night.start && h.time <= night.end)
     .sort((a, b) => a.time - b.time);
 
   const hours: ClassifiedHour[] = windowHours.map((h) => ({

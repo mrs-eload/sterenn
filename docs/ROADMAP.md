@@ -5,26 +5,27 @@ when a flag flips, edit it here in the same commit. This is the at-a-glance map;
 `docs/STATUS.md` holds the detailed state of the *current* subject.
 
 **Flags:** ✅ done · ⚙️ partial · ⬜ not started · n/a not applicable
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-20
 
 ## Subjects
 
-### 1. Conditions — "tonight's conditions" _(current subject, ~80%)_
+### 1. Conditions — "tonight's conditions" _(shipped ✅)_
 
-The first and only subject in progress. Fixes Ouranos's "any clear hour = good
-night" flaw by detecting the longest contiguous clear block ≥3h. See ADR 0001
-(design), ADR 0002 (data layer), STATUS.md (detail).
+The first subject. Fixes Ouranos's "any clear hour = good night" flaw by detecting
+the longest contiguous clear block ≥3h. See ADR 0001 (design), ADR 0002 (data
+layer, now live-verified), STATUS.md (detail).
 
 | Piece | UI | Logic | API |
 |---|---|---|---|
 | Dark window (twilight, suncalc) | n/a | ✅ | — |
 | Night analysis (the Ouranos fix) | n/a | ✅ | — |
-| Weather fetch + adapter | n/a | ✅ ⚠️ unverified live | Open-Meteo (keyless) |
-| Model picker | ⬜ | ⚙️ registry done | Open-Meteo |
-| UI: night card, hourly table, observation-window bar, sky-quality curve | ⬜ | n/a | — |
+| Verdict/reason (too-cloudy vs too-short) | n/a | ✅ | — |
+| Weather fetch + adapter | n/a | ✅ live-verified | Open-Meteo (keyless) |
+| Model picker | ✅ | ✅ registry done | Open-Meteo |
+| UI: night card, hourly table, observation-window bar, sky-quality curve | ✅ | n/a | — |
 
-**Remaining:** the `features/conditions/` UI (install MUI first), the model-picker
-component, and one live Open-Meteo call to confirm slugs + response shape.
+**Done.** Optional later polish: a location picker (the `useTonight` hook already
+takes `lat`/`lon`) and an analysis-config UI. Neither blocks the subject.
 
 ### 2. Moon
 
@@ -77,8 +78,8 @@ proxy. None does so far.
 
 ## Build order (recommended)
 
-1. Finish **Conditions UI** + live-API verification → ship subject 1.
-2. **Moon** (cheap, suncalc already present, complements conditions).
+1. ~~Finish **Conditions UI** + live-API verification → ship subject 1.~~ ✅ Done.
+2. **Moon** (cheap, suncalc already present, complements conditions). ← next.
 3. **Target planning** (introduces astronomy-engine).
 4. **Rig tools** (self-contained, no dependency on others).
 5. **Session planner** (composes everything).

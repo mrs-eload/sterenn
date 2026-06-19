@@ -19,7 +19,10 @@ export interface WeatherModel {
 export const WEATHER_MODELS: WeatherModel[] = [
   { id: 'best_match', label: 'Best match', note: 'Open-Meteo auto-selects the best model for the location' },
   { id: 'ecmwf_ifs025', label: 'ECMWF IFS 0.25°', note: 'Global, 0.25°' },
-  { id: 'ecmwf_ifs04', label: 'ECMWF IFS HRES 9km', note: 'Global high-res 9km' },
+  // Was 'ecmwf_ifs04' (0.4° HRES) — Open-Meteo retired it; the slug now returns
+  // all-null cloud_cover. Replaced with ECMWF's AIFS 0.25° (the *_single level
+  // variant, since cloud_cover/precip are single-level vars). Verified live 2026-06-20.
+  { id: 'ecmwf_aifs025_single', label: 'ECMWF AIFS 0.25°', note: 'Global AI model, 0.25°' },
   { id: 'meteofrance_arome_france', label: 'Météo-France AROME', note: 'Regional, high-res for France' },
   { id: 'icon_global', label: 'ICON Global', note: 'DWD global' },
   { id: 'icon_eu', label: 'ICON EU', note: 'DWD Europe, higher-res' },

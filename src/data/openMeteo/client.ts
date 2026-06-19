@@ -33,7 +33,7 @@ export interface FetchForecastParams {
   lon: number;
   /** Open-Meteo model slugs. One or many. */
   models: string[];
-  /** Defaults to 2 — tonight + a margin for the dark window crossing midnight. */
+  /** Defaults to 2 — tonight + a margin for the night window crossing midnight. */
   forecastDays?: number;
   /** Override base URL for testing. */
   baseUrl?: string;

@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { adaptForecast } from './adapter.ts';
 import type { OpenMeteoResponse } from './client.ts';
 
-const baseRes = (hourly: any): OpenMeteoResponse => ({
+// Partial so a test can deliberately omit `time` (the missing-time throw case);
+// cast back to the full shape for the adapter, which validates `time` at runtime.
+const baseRes = (
+  hourly: Partial<OpenMeteoResponse['hourly']>,
+): OpenMeteoResponse => ({
   latitude: 47.78,
   longitude: -3.35,
   utc_offset_seconds: 0,
   timezone: 'GMT',
-  hourly,
+  hourly: hourly as OpenMeteoResponse['hourly'],
 });
 
 describe('adaptForecast', () => {

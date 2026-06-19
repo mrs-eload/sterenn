@@ -55,20 +55,28 @@ inventing a phantom model called "probability". Fix: match base variables
 A `null`/missing `cloud_cover` value maps to `cloudCover: 100` (overcast), so a
 data gap never accidentally reads as a clear sky. Precip fields default to 0.
 
-## ⚠️ Not yet verified against the live API
+## ✅ Verified against the live API (2026-06-20)
 
-The container that built this **could not reach `api.open-meteo.com`** (egress
-allowlist). Two things are from docs, not a live call, and must be confirmed on
-first real run:
+Both caveats below were confirmed with a live multi-model call to
+`api.open-meteo.com` for Brittany (48.2, -4.1). Results:
 
-1. **Model slugs in `models.ts`.** If a model returns no data, the slug is the
-   suspect — check it against the Weather Models dropdown at
-   https://open-meteo.com/en/docs and fix that one registry entry. The adapter
-   is slug-agnostic, so a wrong slug only affects its own picker row.
-2. **The multi-model suffix shape** (`cloud_cover_<slug>`). It's the documented
-   behaviour and the adapter handles it, but the exact response shape should be
-   eyeballed once. If it differs, `adapter.ts` is the only place to adjust, and
-   its tests make that change safe.
+1. **Multi-model suffix shape** — confirmed exactly as documented:
+   `cloud_cover_<slug>`, `precipitation_<slug>`, `precipitation_probability_<slug>`,
+   with a single shared `time` array. `adaptForecast` handles it unchanged.
+2. **Model slugs** — confirmed working (non-null data): `best_match`,
+   `ecmwf_ifs025`, `meteofrance_arome_france`, `icon_eu`, `icon_global`,
+   `ukmo_global_deterministic_10km`.
+   - **One slug was dead:** `ecmwf_ifs04` returned all-null `cloud_cover`
+     (Open-Meteo retired the 0.4° HRES product). Replaced in the registry with
+     `ecmwf_aifs025_single` (ECMWF AIFS 0.25°). Note the `_single` suffix: the
+     plain `ecmwf_aifs025` exposes only upper-air levels, so its `cloud_cover`
+     came back all-null too — surface variables live on the `*_single` model.
+   - **Observed nicety:** some models omit a variable entirely (e.g. UKMO has no
+     `precipitation_probability` → all null). The adapter's `numOr` default (0 for
+     precip) covers this; missing `cloud_cover` still defaults to 100 (pessimistic).
+
+This confirms the runtime-suffix-discovery design (ADR decision above) earns its
+keep: a retired slug degraded to one empty picker row instead of breaking parsing.
 
 ## Consequences
 
