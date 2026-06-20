@@ -1,11 +1,13 @@
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import { SectionHeader } from './SectionHeader.tsx';
 
 /**
  * Weather-model selector. Dumb: it shows the models the hook says are available
- * and reports the chosen id back up. It does not know what a model *is*.
+ * and reports the chosen id back up. It does not know what a model *is*. Uses the
+ * themed Button (contained = active, outlined = the rest) instead of a toggle
+ * group so it matches the dashboard's button language.
  */
 export interface ModelPickerProps {
   models: { id: string; label: string }[];
@@ -16,26 +18,24 @@ export interface ModelPickerProps {
 export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   if (models.length === 0) return null;
   return (
-    <Box>
-      <Typography variant="overline" color="text.secondary">
-        Weather model
-      </Typography>
-      <ToggleButtonGroup
-        value={value}
-        exclusive
-        size="small"
-        onChange={(_, next) => {
-          // null when the active button is clicked again — keep the selection.
-          if (next !== null) onChange(next);
-        }}
-        sx={{ flexWrap: 'wrap', gap: 1, '& .MuiToggleButton-root': { border: 1 } }}
-      >
-        {models.map((m) => (
-          <ToggleButton key={m.id} value={m.id} sx={{ textTransform: 'none' }}>
-            {m.label}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    </Box>
+    <Paper>
+      <SectionHeader icon="mingcute:cloud-line" title="Weather model" />
+      <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+        {models.map((m) => {
+          const active = m.id === value;
+          return (
+            <Button
+              key={m.id}
+              size="small"
+              variant={active ? 'contained' : 'outlined'}
+              color={active ? 'primary' : 'secondary'}
+              onClick={() => onChange(m.id)}
+            >
+              {m.label}
+            </Button>
+          );
+        })}
+      </Stack>
+    </Paper>
   );
 }

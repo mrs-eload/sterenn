@@ -17,7 +17,7 @@ const MainLayout = ({ children }: PropsWithChildren) => {
         sx={{
           p: { xs: 2, sm: 3, lg: 5 },
           gap: { xs: 2.5, sm: 3, lg: 3.75 }, // 'spacing' maps to 'gap' inside 'sx'
-          width: { xs: 1, lg: `calc(100% - 300px)` },
+          width: 1,
           flexGrow: 1,
         }}
       >

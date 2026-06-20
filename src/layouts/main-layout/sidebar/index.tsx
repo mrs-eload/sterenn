@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import { ConditionsView } from "@app/features/conditions/ConditionsView.tsx";
+import ProfileMenu from "@app/layouts/main-layout/topbar/ProfileMenu.tsx";
 interface SidebarProps {
   mobileOpen: boolean;
   setMobileOpen: Dispatch<SetStateAction<boolean>>;
@@ -19,22 +19,15 @@ const Sidebar = ({ mobileOpen, setMobileOpen, setIsClosing }: SidebarProps) => {
   };
 
   return (
-    <Box
-      component="nav"
-      sx={{ width: { lg: 300 }, flexShrink: { lg: 0 }, display: { xs: 'none', lg: 'block' } }}
-    >
+    <Box component="nav">
       <Drawer
         variant="temporary"
         open={mobileOpen}
         onTransitionEnd={handleDrawerTransitionEnd}
         onClose={handleDrawerClose}
         ModalProps={{ keepMounted: true }}
-        sx={{ display: { xs: 'block', lg: 'none' } }}
       >
-      </Drawer>
-
-      <Drawer variant="permanent" sx={{ display: { xs: 'none', lg: 'block' } }} open>
-        <ConditionsView />
+        <ProfileMenu />
       </Drawer>
     </Box>
   );

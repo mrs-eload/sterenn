@@ -51,6 +51,15 @@ declare module '@mui/material/styles' {
 }
 
 const palette: PaletteOptions = {
+  // Sky-verdict colours. Declared in the augmentation above but, until now, never
+  // actually set — so every `theme.palette.verdict?.clear` in features/conditions
+  // resolved to undefined and rendered colourless. Mapped onto the theme's own
+  // signal colours: clear = green, bridged-cloud = amber, precip = red.
+  verdict: {
+    clear: green[500],
+    cloud: yellow[500],
+    precip: red[500],
+  },
   neutral: {
     lighter: grey[100],
     light: grey[200],

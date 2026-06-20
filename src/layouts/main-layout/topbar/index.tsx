@@ -28,7 +28,7 @@ const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
   return (
     <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', mb: { xs: 0, lg: 1 } }}>
       <Stack spacing={2} sx={{ alignItems: 'center' }}>
-        <Toolbar sx={{ display: { xm: 'block', lg: 'none' } }}>
+        <Toolbar sx={{ display: 'flex' }}>
           <IconButton
             size="medium"
             edge="start"

@@ -1,38 +1,7 @@
-import Grid from '@mui/material/Grid';
-import KPIs from '@app/components/sections/dashboard/kpi/KPIs';
-import Products from '@app/components/sections/dashboard/products/Products';
-import RevenueByCustomer from '@app/components/sections/dashboard/revenue-by-customer/RevenueByCustomer';
-import WebsiteVisitors from '@app/components/sections/dashboard/website-visitors/WebsiteVisitors';
-import OrdersStatus from '@app/components/sections/dashboard/orders-status/OrdersStatus';
-import { ConditionsView } from "@app/features/conditions/ConditionsView.tsx";
+import { ConditionsView } from '@app/features/conditions/ConditionsView';
 
 const Dashboard = () => {
-  return (
-    <Grid container spacing={{ xs: 2.5, sm: 3, lg: 3.75 }}>
-      <Grid size={12}>
-        <KPIs />
-      </Grid>
-
-      <Grid size={{ xs: 12, xl: 4 }}>
-        <WebsiteVisitors />
-      </Grid>
-
-      <Grid size={{ xs: 12, xl: 8 }}>
-        <RevenueByCustomer />
-      </Grid>
-
-      <Grid size={{ xs: 12, xl: 4 }}>
-        <ConditionsView />
-      </Grid>
-
-      <Grid size={{ xs: 12, xl: 8 }}>
-      </Grid>
-
-      <Grid size={{ xs: 12 }}>
-        <OrdersStatus />
-      </Grid>
-    </Grid>
-  );
+  return <ConditionsView />;
 };
 
 export default Dashboard;
