@@ -91,9 +91,12 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
       minWidth: 180,
       resizable: false,
       renderHeader: () => (
-        <Stack alignItems="center" gap={0.75}>
-          <IconifyIcon icon="mingcute:user-2-fill" color="neutral.main" fontSize="body2.fontSize" />
-          <Typography variant="caption" mt={0.25} letterSpacing={0.5}>
+        <Stack sx={{ alignItems: 'center', gap: 0.75 }}>
+          <IconifyIcon
+            icon="mingcute:user-2-fill"
+            sx={{ color: 'neutral.main', fontSize: 'body2.fontSize' }}
+          />
+          <Typography variant="caption" sx={{ mt: 0.25, letterSpacing: 0.5 }}>
             Client
           </Typography>
         </Stack>
@@ -103,11 +106,15 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
       },
       renderCell: (params) => {
         return (
-          <Stack direction="column" alignSelf="center" justifyContent="center" sx={{ height: 1 }}>
-            <Typography variant="subtitle1" fontSize="caption.fontSize">
+          <Stack direction="column" sx={{ alignSelf: 'center', justifyContent: 'center', height: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontSize: 'caption.fontSize' }}>
               {params.row.client.name}
             </Typography>
-            <Typography variant="subtitle2" color="text.secondary" fontSize="caption.fontSize">
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ fontSize: 'caption.fontSize' }}
+            >
               {params.row.client.email}
             </Typography>
           </Stack>
@@ -124,9 +131,9 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
       flex: 1,
       resizable: false,
       renderHeader: () => (
-        <Stack alignItems="center" gap={0.75}>
-          <IconifyIcon icon="mdi:calendar" color="neutral.main" fontSize="body1.fontSize" />
-          <Typography mt={0.175} variant="caption" letterSpacing={0.5}>
+        <Stack sx={{ alignItems: 'center', gap: 0.75 }}>
+          <IconifyIcon icon="mdi:calendar" sx={{ color: 'neutral.main', fontSize: 'body1.fontSize' }} />
+          <Typography variant="caption" sx={{ mt: 0.175, letterSpacing: 0.5 }}>
             Date
           </Typography>
         </Stack>
@@ -141,20 +148,19 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
       flex: 1,
       resizable: false,
       renderHeader: () => (
-        <Stack alignItems="center" gap={0.875}>
+        <Stack sx={{ alignItems: 'center', gap: 0.875 }}>
           <IconifyIcon
             icon="carbon:checkbox-checked-filled"
-            color="neutral.main"
-            fontSize="body1.fontSize"
+            sx={{ color: 'neutral.main', fontSize: 'body1.fontSize' }}
           />
-          <Typography mt={0.175} variant="caption" letterSpacing={0.5}>
+          <Typography variant="caption" sx={{ mt: 0.175, letterSpacing: 0.5 }}>
             Status
           </Typography>
         </Stack>
       ),
       renderCell: (params) => {
         return (
-          <Stack direction="column" alignSelf="center" justifyContent="center" sx={{ height: 1 }}>
+          <Stack direction="column" sx={{ alignSelf: 'center', justifyContent: 'center', height: 1 }}>
             <StatusChip status={params.value} />
           </Stack>
         );
@@ -186,13 +192,12 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
       resizable: false,
       editable: true,
       renderHeader: () => (
-        <Stack alignItems="center" gap={0.75}>
+        <Stack sx={{ alignItems: 'center', gap: 0.75 }}>
           <IconifyIcon
             icon="healthicons:geo-location"
-            color="neutral.main"
-            fontSize="h5.fontSize"
+            sx={{ color: 'neutral.main', fontSize: 'h5.fontSize' }}
           />
-          <Typography mt={0.175} variant="caption" letterSpacing={0.5}>
+          <Typography variant="caption" sx={{ mt: 0.175, letterSpacing: 0.5 }}>
             Country
           </Typography>
         </Stack>
@@ -224,9 +229,8 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
             <GridActionsCellItem
               icon={
                 <IconifyIcon
-                  color="primary.main"
                   icon="mdi:content-save"
-                  sx={{ fontSize: 'body1.fontSize', pointerEvents: 'none' }}
+                  sx={{ color: 'primary.main', fontSize: 'body1.fontSize', pointerEvents: 'none' }}
                 />
               }
               label="Save"
@@ -236,9 +240,8 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
             <GridActionsCellItem
               icon={
                 <IconifyIcon
-                  color="text.secondary"
                   icon="iconamoon:sign-times-duotone"
-                  sx={{ fontSize: 'body1.fontSize', pointerEvents: 'none' }}
+                  sx={{ color: 'text.secondary', fontSize: 'body1.fontSize', pointerEvents: 'none' }}
                 />
               }
               label="Cancel"
@@ -253,8 +256,7 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
             icon={
               <IconifyIcon
                 icon="fluent:edit-32-filled"
-                color="text.secondary"
-                sx={{ fontSize: 'body1.fontSize', pointerEvents: 'none' }}
+                sx={{ color: 'text.secondary', fontSize: 'body1.fontSize', pointerEvents: 'none' }}
               />
             }
             label="Edit"
@@ -265,8 +267,7 @@ const OrdersStatusTable = ({ searchText }: OrdersStatusTableProps) => {
             icon={
               <IconifyIcon
                 icon="mingcute:delete-3-fill"
-                color="text.secondary"
-                sx={{ fontSize: 'body1.fontSize', pointerEvents: 'none' }}
+                sx={{ color: 'text.secondary', fontSize: 'body1.fontSize', pointerEvents: 'none' }}
               />
             }
             label="Delete"

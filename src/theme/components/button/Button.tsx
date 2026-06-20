@@ -29,16 +29,6 @@ const Button: Components<Omit<Theme, '@app/components'>>['MuiButton'] = {
         color: theme.palette.text.disabled,
       },
     }),
-    containedPrimary: ({ theme }) => ({
-      background: `linear-gradient(128.49deg, ${theme.palette.gradients.primary.main} 19.86%, ${theme.palette.gradients.primary.state} 68.34%)`,
-      '&:hover': {
-        background: `linear-gradient(128.49deg, ${theme.palette.gradients.primary.main} 19.86%, ${theme.palette.gradients.primary.state} 68.34%)`,
-      },
-    }),
-    containedSecondary: ({ theme }) => ({
-      background: theme.palette.info.dark,
-      '&:hover': { background: theme.palette.info.dark },
-    }),
     sizeLarge: ({ theme }) => ({
       padding: theme.spacing(1.25, 2.25),
       fontSize: theme.typography.button.fontSize,

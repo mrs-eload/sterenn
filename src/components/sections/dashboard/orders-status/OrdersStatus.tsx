@@ -19,11 +19,14 @@ const OrdersStatus = () => {
 
   return (
     <Paper sx={{ px: 0 }}>
-      <Stack px={3.5} spacing={1.5} alignItems="center" justifyContent="space-between">
-        <Typography variant="h6" fontWeight={400} fontFamily={fontFamily.workSans}>
+      <Stack
+        spacing={1.5}
+        sx={{ px: 3.5, alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 400, fontFamily: fontFamily.workSans }}>
           Orders Status
         </Typography>
-        <Stack spacing={2} alignItems="center">
+        <Stack spacing={2} sx={{ alignItems: 'center' }}>
           <TextField
             variant="filled"
             size="small"
@@ -47,7 +50,7 @@ const OrdersStatus = () => {
         </Stack>
       </Stack>
 
-      <Stack my={2} px={3.5} width={1} justifyContent="center">
+      <Stack sx={{ my: 2, px: 3.5, width: 1, justifyContent: 'center' }}>
         <TextField
           variant="filled"
           size="small"
@@ -67,7 +70,7 @@ const OrdersStatus = () => {
         />
       </Stack>
 
-      <Box mt={1.5} sx={{ height: 594, width: 1, flexShrink: 0 }}>
+      <Box sx={{ mt: 1.5, height: 594, width: 1, flexShrink: 0 }}>
         <OrdersStatusTable searchText={searchText} />
       </Box>
     </Paper>

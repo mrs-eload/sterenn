@@ -69,10 +69,10 @@ const ProfileMenu = () => {
         <ButtonBase onClick={handleProfileClick} disableRipple>
           <Stack
             spacing={1}
-            alignItems="center"
             aria-controls={open ? 'account-menu' : undefined}
             aria-expanded={open ? 'true' : undefined}
             aria-haspopup="true"
+            sx={{ alignItems: 'center' }}
           >
             <Avatar
               src={AvatarImage}
@@ -116,10 +116,10 @@ const ProfileMenu = () => {
             }}
           />
           <Stack direction="column">
-            <Typography variant="body2" fontWeight={500}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
               John Carter
             </Typography>
-            <Typography variant="caption" fontWeight={400} color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 400 }}>
               john@example.com
             </Typography>
           </Stack>

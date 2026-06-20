@@ -26,8 +26,8 @@ const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
   };
 
   return (
-    <Stack alignItems="center" justifyContent="space-between" mb={{ xs: 0, lg: 1 }}>
-      <Stack spacing={2} alignItems="center">
+    <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', mb: { xs: 0, lg: 1 } }}>
+      <Stack spacing={2} sx={{ alignItems: 'center' }}>
         <Toolbar sx={{ display: { xm: 'block', lg: 'none' } }}>
           <IconButton
             size="medium"
@@ -51,16 +51,18 @@ const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
 
         <Typography
           variant="h5"
-          fontWeight={600}
-          letterSpacing={1}
-          fontFamily={fontFamily.workSans}
-          display={{ xs: 'none', lg: 'block' }}
+          sx={{
+            fontWeight: 600,
+            letterSpacing: 1,
+            fontFamily: fontFamily.workSans,
+            display: { xs: 'none', lg: 'block' },
+          }}
         >
           Analytics
         </Typography>
       </Stack>
 
-      <Stack spacing={1} alignItems="center">
+      <Stack spacing={1} sx={{ alignItems: 'center' }}>
         <LanguageSelect />
 
         <Tooltip title="Notifications">

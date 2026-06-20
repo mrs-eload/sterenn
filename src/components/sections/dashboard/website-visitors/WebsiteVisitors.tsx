@@ -15,8 +15,8 @@ const WebsiteVisitors = () => {
 
   return (
     <Paper sx={{ height: 500 }}>
-      <Stack alignItems="center" justifyContent="space-between" mb={-2}>
-        <Typography variant="h6" fontWeight={400} fontFamily={fontFamily.workSans}>
+      <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', mb: -2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 400, fontFamily: fontFamily.workSans }}>
           Website Visitors
         </Typography>
         <Button

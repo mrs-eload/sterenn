@@ -16,16 +16,16 @@ const KPI = (props: KPIProps) => {
       <Stack
         component={Paper}
         direction="column"
-        p={2.25}
-        pl={2.5}
-        gap={1.5}
-        height={116}
-        width={1}
+        sx={{ p: 2.25, pl: 2.5, gap: 1.5, height: 116, width: 1 }}
       >
-        <Stack justifyContent="space-between">
-          <Stack alignItems="center" gap={1}>
-            <IconifyIcon icon={icon} color="primary.main" fontSize="h5.fontSize" />
-            <Typography variant="subtitle2" color="text.secondary" fontFamily={fontFamily.workSans}>
+        <Stack sx={{ justifyContent: 'space-between' }}>
+          <Stack sx={{ alignItems: 'center', gap: 1 }}>
+            <IconifyIcon icon={icon} sx={{ color: 'primary.main', fontSize: 'h5.fontSize' }} />
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ fontFamily: fontFamily.workSans }}
+            >
               {title}
             </Typography>
           </Stack>
@@ -39,8 +39,8 @@ const KPI = (props: KPIProps) => {
           </IconButton>
         </Stack>
 
-        <Stack alignItems="center" gap={0.875}>
-          <Typography variant="h3" fontWeight={600} letterSpacing={1}>
+        <Stack sx={{ alignItems: 'center', gap: 0.875 }}>
+          <Typography variant="h3" sx={{ fontWeight: 600, letterSpacing: 1 }}>
             {value}
           </Typography>
           <RateChip rate={rate} isUp={isUp} />

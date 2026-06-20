@@ -25,16 +25,16 @@ const productsData = [
 
 const Products = () => {
   return (
-    <Stack direction="column" gap={3.75} component={Paper} height={300}>
-      <Typography variant="h6" fontWeight={400} fontFamily={fontFamily.workSans}>
+    <Stack direction="column" component={Paper} sx={{ gap: 3.75, height: 300 }}>
+      <Typography variant="h6" sx={{ fontWeight: 400, fontFamily: fontFamily.workSans }}>
         Products
       </Typography>
 
-      <Stack justifyContent="space-between">
-        <Typography variant="caption" fontWeight={400}>
+      <Stack sx={{ justifyContent: 'space-between' }}>
+        <Typography variant="caption" sx={{ fontWeight: 400 }}>
           Products
         </Typography>
-        <Typography variant="caption" fontWeight={400}>
+        <Typography variant="caption" sx={{ fontWeight: 400 }}>
           Price
         </Typography>
       </Stack>

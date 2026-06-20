@@ -46,11 +46,11 @@ export function SkyQualityCurve({ hours, height = 96 }: SkyQualityCurveProps) {
           preserveAspectRatio="none"
           style={{ display: 'block' }}
         >
-          <path d={areaPath} fill={theme.palette.verdict.clear} opacity={0.18} />
+          <path d={areaPath} fill={theme.palette.verdict?.clear} opacity={0.18} />
           <polyline
             points={linePoints}
             fill="none"
-            stroke={theme.palette.verdict.clear}
+            stroke={theme.palette.verdict?.clear}
             strokeWidth={2}
             vectorEffect="non-scaling-stroke"
           />
@@ -63,7 +63,7 @@ export function SkyQualityCurve({ hours, height = 96 }: SkyQualityCurveProps) {
                 y={94}
                 width={1.2}
                 height={6}
-                fill={theme.palette.verdict.precip}
+                fill={theme.palette.verdict?.precip}
               />
             ) : null,
           )}

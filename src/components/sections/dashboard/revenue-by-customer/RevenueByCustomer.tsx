@@ -19,23 +19,29 @@ const RevenueByCustomer = () => {
         Revenue by customer type
       </Typography>
 
-      <Stack alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" mt={1}>
-        <Stack flexWrap="wrap" alignItems="center" gap={0.875}>
-          <Typography variant="h3" fontWeight={600} letterSpacing={1}>
+      <Stack
+        sx={{
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          justifyContent: 'space-between',
+          mt: 1,
+        }}
+      >
+        <Stack sx={{ flexWrap: 'wrap', alignItems: 'center', gap: 0.875 }}>
+          <Typography variant="h3" sx={{ fontWeight: 600, letterSpacing: 1 }}>
             $240.8K
           </Typography>
           <RateChip rate={'14.8%'} isUp={true} />
         </Stack>
 
-        <Stack alignItems="center" spacing={2}>
-          <Box display={{ xs: 'none', md: 'block' }}>
+        <Stack spacing={2} sx={{ alignItems: 'center' }}>
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             <RevenueChartLegends chartRef={chartRef} isSm={false} />
           </Box>
           <DateSelect />
         </Stack>
       </Stack>
 
-      <Box display={{ xs: 'block', md: 'none' }}>
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
         <RevenueChartLegends chartRef={chartRef} isSm={true} />
       </Box>
 

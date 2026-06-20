@@ -8,7 +8,6 @@
     "skipLibCheck": true,
 
     /* Bundler mode */
-    "importsNotUsedAsValues": "preserve",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
@@ -23,7 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@app/*": ["src/*"]
+      "@app/*": ["./src/*"]
     }
   },
   "include": [

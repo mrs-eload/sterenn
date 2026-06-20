@@ -1,5 +1,5 @@
 import { GridRowsProp } from '@mui/x-data-grid';
-import { formatNumber } from 'utils/formatNumber';
+import { formatNumber } from '@app/utils/formatNumber';
 
 export const ordersStatusData: GridRowsProp = [
   {

@@ -16,22 +16,10 @@ const Chip: Components<Omit<Theme, '@app/components'>>['MuiChip'] = {
       height: 28,
       fontSize: theme.typography.body1.fontSize,
     }),
-    iconSmall: {
-      width: 12,
-      margin: '0 !important',
-    },
-    iconMedium: {
-      width: 16,
-      margin: '0 !important',
-    },
-    labelSmall: {
-      padding: 0,
-      textTransform: 'capitalize',
-    },
-    labelMedium: {
-      padding: 0,
-      textTransform: 'capitalize',
-    },
+    label: {
+      paddingLeft: 2,
+      paddingRight: 2
+    }
   },
 };
 

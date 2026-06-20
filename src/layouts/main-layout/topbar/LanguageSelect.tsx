@@ -103,7 +103,7 @@ const LanguageSelect = () => {
                 <Typography>{langItem.lang}</Typography>
               </ListItemText>
               <ListItemText>
-                <Typography textAlign="right">{langItem.code}</Typography>
+                <Typography sx={{ textAlign: 'right' }}>{langItem.code}</Typography>
               </ListItemText>
             </MenuItem>
           );

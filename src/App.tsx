@@ -1,7 +1,8 @@
-import { ConditionsView } from './features/conditions/ConditionsView.tsx';
+import { Outlet } from "react-router";
+import { ConditionsView } from "@app/features/conditions/ConditionsView.tsx";
 
 function App() {
-  return <ConditionsView />;
+  return <Outlet />;
 }
 
 export default App;

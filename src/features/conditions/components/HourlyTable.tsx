@@ -30,10 +30,10 @@ export function HourlyTable({ hours }: HourlyTableProps) {
 
   const colorFor = (v: HourVerdict) =>
     v === 'clear'
-      ? theme.palette.verdict.clear
+      ? theme.palette.verdict?.clear
       : v === 'precip'
-        ? theme.palette.verdict.precip
-        : theme.palette.verdict.cloud;
+        ? theme.palette.verdict?.precip
+        : theme.palette.verdict?.cloud;
 
   return (
     <Box>

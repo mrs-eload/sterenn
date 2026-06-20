@@ -1,8 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import DrawerItems from './DrawerItems';
-
+import { ConditionsView } from "@app/features/conditions/ConditionsView.tsx";
 interface SidebarProps {
   mobileOpen: boolean;
   setMobileOpen: Dispatch<SetStateAction<boolean>>;
@@ -22,9 +21,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, setIsClosing }: SidebarProps) => {
   return (
     <Box
       component="nav"
-      width={{ lg: 300 }}
-      flexShrink={{ lg: 0 }}
-      display={{ xs: 'none', lg: 'block' }}
+      sx={{ width: { lg: 300 }, flexShrink: { lg: 0 }, display: { xs: 'none', lg: 'block' } }}
     >
       <Drawer
         variant="temporary"
@@ -34,11 +31,10 @@ const Sidebar = ({ mobileOpen, setMobileOpen, setIsClosing }: SidebarProps) => {
         ModalProps={{ keepMounted: true }}
         sx={{ display: { xs: 'block', lg: 'none' } }}
       >
-        <DrawerItems />
       </Drawer>
 
       <Drawer variant="permanent" sx={{ display: { xs: 'none', lg: 'block' } }} open>
-        <DrawerItems />
+        <ConditionsView />
       </Drawer>
     </Box>
   );

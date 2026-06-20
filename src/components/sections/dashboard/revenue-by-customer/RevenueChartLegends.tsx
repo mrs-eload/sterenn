@@ -10,6 +10,14 @@ interface LegendsProps {
   isSm?: boolean;
 }
 
+// Loose shape for the echarts option we read/mutate here; the live chart
+// option is too broadly typed by echarts to narrow usefully.
+interface BarSeries {
+  name?: string;
+  type?: string;
+  data?: number[];
+}
+
 const RevenueChartLegends = ({ chartRef, isSm }: LegendsProps) => {
   const [toggleColor, setToggleColor] = useState({
     currentClients: true,
@@ -29,17 +37,18 @@ const RevenueChartLegends = ({ chartRef, isSm }: LegendsProps) => {
       setToggleColor({ ...toggleColor, newCustomers: !toggleColor.newCustomers });
     }
 
-    const option = echartsInstance.getOption() as echarts.EChartsOption;
+    const option = echartsInstance.getOption() as unknown as { series?: BarSeries[] };
 
     if (Array.isArray(option.series)) {
       const series = option.series.map((s) => {
         if (s.name === seriesName && s.type === 'bar') {
-          const isBarVisible = (s.data as number[]).some((value) => value !== 0);
+          const data = s.data ?? [];
+          const isBarVisible = data.some((value) => value !== 0);
           return {
             ...s,
             data: isBarVisible
-              ? (s.data as number[]).map(() => 0)
-              : revenueByCustomerData.series.find((s) => s.name === seriesName)?.data || [],
+              ? data.map(() => 0)
+              : revenueByCustomerData.series.find((d) => d.name === seriesName)?.data || [],
           };
         }
         return s;
@@ -50,11 +59,13 @@ const RevenueChartLegends = ({ chartRef, isSm }: LegendsProps) => {
 
   return (
     <Stack
-      alignItems="center"
-      justifyContent={isSm ? 'center' : 'flex-start'}
       spacing={{ xs: 1, sm: 2 }}
-      pt={isSm ? 3 : 0}
-      width={isSm ? 1 : 'auto'}
+      sx={{
+        alignItems: 'center',
+        justifyContent: isSm ? 'center' : 'flex-start',
+        pt: isSm ? 3 : 0,
+        width: isSm ? 1 : 'auto',
+      }}
     >
       {revenueChartLegendsData.map((item) => (
         <RevenueChartLegend

@@ -4,6 +4,7 @@ import Products from '@app/components/sections/dashboard/products/Products';
 import RevenueByCustomer from '@app/components/sections/dashboard/revenue-by-customer/RevenueByCustomer';
 import WebsiteVisitors from '@app/components/sections/dashboard/website-visitors/WebsiteVisitors';
 import OrdersStatus from '@app/components/sections/dashboard/orders-status/OrdersStatus';
+import { ConditionsView } from "@app/features/conditions/ConditionsView.tsx";
 
 const Dashboard = () => {
   return (
@@ -21,7 +22,7 @@ const Dashboard = () => {
       </Grid>
 
       <Grid size={{ xs: 12, xl: 4 }}>
-        <Products />
+        <ConditionsView />
       </Grid>
 
       <Grid size={{ xs: 12, xl: 8 }}>

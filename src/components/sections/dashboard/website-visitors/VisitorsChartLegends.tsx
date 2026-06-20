@@ -9,6 +9,16 @@ interface LegendsProps {
   chartRef: React.RefObject<EChartsReactCore | null>;
 }
 
+// Loose shape for the echarts data items we recolor here; the live chart
+// option is too broadly typed by echarts to narrow usefully.
+interface VisitorDataItem {
+  type: string;
+  itemStyle: { color?: string };
+}
+interface VisitorSeries {
+  data?: VisitorDataItem[];
+}
+
 const VisitorsChartLegends = ({ chartRef }: LegendsProps) => {
   const theme = useTheme();
   const [toggleColor, setToggleColor] = useState({
@@ -42,7 +52,7 @@ const VisitorsChartLegends = ({ chartRef }: LegendsProps) => {
     const echartsInstance = chartRef.current?.getEchartsInstance();
     if (!echartsInstance) return;
 
-    const option = echartsInstance.getOption() as echarts.EChartsOption;
+    const option = echartsInstance.getOption() as unknown as { series?: VisitorSeries[] };
 
     if (type === 'Organic') {
       setToggleColor({ organic: true, social: false, direct: false });
@@ -87,7 +97,7 @@ const VisitorsChartLegends = ({ chartRef }: LegendsProps) => {
   });
 
   return (
-    <Stack mt={-1} spacing={3} direction="column">
+    <Stack spacing={3} direction="column" sx={{ mt: -1 }}>
       {visitorsChartLegendsData.map((item) => (
         <VisitorsChartLegend
           key={item.id}

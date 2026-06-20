@@ -19,7 +19,7 @@ interface LegendProps {
 }
 
 const VisitorsChartLegend = ({ data, toggleColor, handleToggleLegend }: LegendProps) => {
-  let color = '';
+  let color: string;
 
   if (toggleColor.organic && data.type === 'Organic') {
     color = 'primary.main';
@@ -32,16 +32,20 @@ const VisitorsChartLegend = ({ data, toggleColor, handleToggleLegend }: LegendPr
   }
 
   return (
-    <Stack alignItems="center" justifyContent="space-between">
+    <Stack sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
       <ButtonBase onClick={(e) => handleToggleLegend(e, data.type)} disableRipple>
-        <Stack spacing={1} alignItems="center">
-          <Box height={8} width={8} bgcolor={color} borderRadius={1} />
-          <Typography variant="body1" color="text.secondary" fontFamily={fontFamily.workSans}>
+        <Stack spacing={1} sx={{ alignItems: 'center' }}>
+          <Box sx={{ height: 8, width: 8, bgcolor: color, borderRadius: 1 }} />
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{ fontFamily: fontFamily.workSans }}
+          >
             {data.type}
           </Typography>
         </Stack>
       </ButtonBase>
-      <Typography variant="body1" color="text.primary" fontFamily={fontFamily.workSans}>
+      <Typography variant="body1" color="text.primary" sx={{ fontFamily: fontFamily.workSans }}>
         {data.rate}
       </Typography>
     </Stack>

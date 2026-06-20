@@ -18,7 +18,7 @@ interface LegendProps {
 }
 
 const RevenueChartLegend = ({ data, toggleColor, handleLegendToggle }: LegendProps) => {
-  let color = '';
+  let color: string;
 
   if (toggleColor.currentClients && data.type === 'Current clients') {
     color = 'primary.main';
@@ -36,9 +36,14 @@ const RevenueChartLegend = ({ data, toggleColor, handleLegendToggle }: LegendPro
       sx={{ maxWidth: { xs: '30%', md: 'unset' } }}
       disableRipple
     >
-      <Stack spacing={0.5} alignItems="center" sx={{ maxWidth: 1 }}>
-        <Box height={8} width={8} bgcolor={color} borderRadius={1} flexShrink={0} />
-        <Typography variant="body2" color="text.secondary" fontFamily={fontFamily.workSans} noWrap>
+      <Stack spacing={0.5} sx={{ alignItems: 'center', maxWidth: 1 }}>
+        <Box sx={{ height: 8, width: 8, bgcolor: color, borderRadius: 1, flexShrink: 0 }} />
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{ fontFamily: fontFamily.workSans }}
+        >
           {data.type}
         </Typography>
       </Stack>

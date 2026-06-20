@@ -18,7 +18,7 @@ const DataGridFooter = () => {
   const rowsCount = useGridSelector(apiRef, gridRowCountSelector);
 
   return (
-    <Stack alignItems="center" justifyContent="space-between" pl={3} pr={1.6} width={1}>
+    <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', pl: 3, pr: 1.6, width: 1 }}>
       <Typography
         variant="body2"
         color="text.primary"

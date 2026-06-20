@@ -24,7 +24,6 @@ const RateChip = ({ rate, isUp }: RateChipProps) => {
       label={rate}
       sx={{
         px: 0.5,
-        width: 62,
         flexDirection: 'row-reverse',
         justifyContent: 'space-between',
         color: isUp ? 'success.main' : 'error.main',

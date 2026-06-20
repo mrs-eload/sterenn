@@ -11,20 +11,26 @@ const Error404 = () => {
     <Container maxWidth="md">
       <Stack
         direction="column"
-        minHeight="100vh"
-        alignItems="center"
-        justifyContent="center"
-        textAlign="center"
+        sx={{
+          minHeight: '100vh',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+        }}
       >
-        <Typography variant="h1" fontSize={100} mb={2}>
+        <Typography variant="h1" sx={{ fontSize: 100, mb: 2 }}>
           404
         </Typography>
 
-        <Typography variant="h2" color="text.secondary" mb={1.5}>
+        <Typography variant="h2" color="text.secondary" sx={{ mb: 1.5 }}>
           Page Not Found
         </Typography>
 
-        <Typography variant="body1" color="text.secondary" maxWidth={520} mx="auto" mb={4}>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ maxWidth: 520, mx: 'auto', mb: 4 }}
+        >
           Sorry, the page you are looking for doesn’t exist or has been moved
         </Typography>
 
