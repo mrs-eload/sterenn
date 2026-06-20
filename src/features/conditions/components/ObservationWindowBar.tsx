@@ -25,10 +25,10 @@ export function ObservationWindowBar({
 
   const colorFor = (h: ClassifiedHour) =>
     h.verdict === 'clear'
-      ? theme.palette.verdict.clear
+      ? theme.palette.verdict?.clear
       : h.verdict === 'precip'
-        ? theme.palette.verdict.precip
-        : theme.palette.verdict.cloud;
+        ? theme.palette.verdict?.precip
+        : theme.palette.verdict?.cloud;
 
   return (
     <Box>

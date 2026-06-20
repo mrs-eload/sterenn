@@ -24,9 +24,9 @@ export function NightCard({ summary, window }: NightCardProps) {
   // they're the sky's fault, not bad weather.
   const chipColor =
     summary.reason === 'good'
-      ? theme.palette.verdict.clear
+      ? theme.palette.verdict?.clear
       : summary.reason === 'too-cloudy'
-        ? theme.palette.verdict.cloud
+        ? theme.palette.verdict?.cloud
         : theme.palette.text.disabled;
 
   return (
