@@ -7,8 +7,6 @@ import Error404 from '@app/pages/Error404';
 
 const App = lazy(() => import('@app/App'));
 const Dashboard = lazy(() => import('@app/pages/Dashboard'));
-// TEMPORARY: moon-phase glyph visual check. Remove with src/pages/MoonPhaseDemo.tsx.
-const MoonPhaseDemo = lazy(() => import('@app/pages/MoonPhaseDemo'));
 
 const router = createBrowserRouter(
   [
@@ -32,11 +30,6 @@ const router = createBrowserRouter(
             {
               index: true,
               element: <Dashboard />,
-            },
-            {
-              // TEMPORARY: remove with src/pages/MoonPhaseDemo.tsx.
-              path: 'moon-demo',
-              element: <MoonPhaseDemo />,
             },
           ],
         },

@@ -31,8 +31,10 @@ export function SectionHeader({ icon, title, action }: SectionHeaderProps) {
             width: 30,
             height: 30,
             borderRadius: 1.5,
-            color: 'primary.main',
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.14),
+            // Same blue as the cloud curve's "mid" layer, so every card icon
+            // reads as one family against the dark navy surface.
+            color: 'secondary.main',
+            bgcolor: (t) => alpha(t.palette.secondary.main, 0.14),
           }}
         >
           <IconifyIcon icon={icon} sx={{ fontSize: 18 }} />

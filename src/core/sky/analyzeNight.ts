@@ -14,8 +14,8 @@
  * Pure. No fetch, no dates-from-the-network. Feed it parsed data, unit-test it freely.
  */
 
-import type { HourPoint, NightWindow } from './types.ts';
-export type { HourPoint, NightWindow };
+import type { CloudCover, HourPoint, NightWindow } from './types.ts';
+export type { CloudCover, HourPoint, NightWindow };
 
 export interface AnalyzeConfig {
   /** Cloud cover at or below this is "clear". Default 20(%). */
@@ -46,7 +46,7 @@ export type HourVerdict = 'clear' | 'cloud' | 'precip';
 
 export interface ClassifiedHour {
   time: number;
-  cloudCover: number;
+  cloudCover?: CloudCover;
   verdict: HourVerdict;
 }
 
@@ -79,7 +79,11 @@ function classifyHour(h: HourPoint, cfg: AnalyzeConfig): HourVerdict {
     (h.precipProbability !== undefined &&
       h.precipProbability >= cfg.precipProbThreshold);
   if (hasPrecip) return 'precip';
-  return h.cloudCover <= cfg.cloudThreshold ? 'clear' : 'cloud';
+  // Verdict runs on overall cover (`total`), not the layer breakdown. Missing
+  // total → assume overcast, matching the adapter's pessimistic missing-data
+  // default rather than silently calling an unknown sky clear.
+  const total = h.cloud?.total ?? 100;
+  return total <= cfg.cloudThreshold ? 'clear' : 'cloud';
 }
 
 /**
@@ -170,7 +174,7 @@ export function analyzeNight(
 
   const hours: ClassifiedHour[] = windowHours.map((h) => ({
     time: h.time,
-    cloudCover: h.cloudCover,
+    cloudCover: h.cloud,
     verdict: classifyHour(h, cfg),
   }));
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  fetchForecast,
+  fetchForecastCached,
   adaptForecast,
   WEATHER_MODELS,
   DEFAULT_MODEL_ID,
@@ -8,9 +8,15 @@ import {
 import {
   getNightWindow,
   analyzeNight,
+  analyzeSeeing,
+  describeNight,
+  summarizeConditions,
   type NightWindow,
   type NightAnalysis,
   type AnalyzeConfig,
+  type SeeingSummary,
+  type HourPoint,
+  type ConditionStatus,
 } from '../../../core/sky';
 
 /**
@@ -30,8 +36,37 @@ import {
  *     OR the window is shorter than minBlockHours (a clear-but-too-short night).
  */
 
-/** Default observing location — Brittany. Override via params when a picker exists. */
-export const DEFAULT_LOCATION = { lat: 47.2, lon: -3.26, label: 'Brittany' };
+export interface ObservingLocation {
+  id: string;
+  label: string;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Selectable observing locations in Brittany. Their coordinates are passed
+ * straight to the live Open-Meteo forecast call.
+ */
+export const LOCATIONS: ObservingLocation[] = [
+  { id: 'hennebont', label: 'Hennebont', lat: 47.2, lon: -3.26 },
+  { id: 'morlaix', label: 'Morlaix', lat: 48.583, lon: -3.833 },
+];
+
+/** Default observing location. Override via the location picker. */
+export const DEFAULT_LOCATION = LOCATIONS[0];
+
+/**
+ * How many forecast days to fetch. The day switcher offers 7 selectable nights
+ * (tonight + the next six); each night begins one evening and ends at the *next*
+ * morning's dawn, so the seventh night reaches into an eighth calendar day. We
+ * fetch 8 days so that last night's pre-dawn hours — the prime imaging window —
+ * aren't truncated. The fetch is day-independent; switching days only re-slices
+ * the already-fetched week, no new network call.
+ */
+export const FORECAST_DAYS = 8;
+
+/** How many nights the day switcher lets you pick (tonight + the next six). */
+export const SELECTABLE_DAYS = 7;
 
 export interface UseTonightParams {
   lat?: number;
@@ -52,12 +87,23 @@ export interface UseTonightResult {
   nightWindow: NightWindow | null;
   /** analyzeNight output per model slug. Empty until ready. */
   byModel: Record<string, NightAnalysis>;
+  /** Jet-stream seeing estimate per model slug. Empty until ready. */
+  seeingByModel: Record<string, SeeingSummary>;
   /** Models that actually came back, in registry order, for the picker. */
   availableModels: { id: string; label: string }[];
   activeModelId: string;
   setActiveModelId: (id: string) => void;
   /** Convenience: the active model's analysis, or null. */
   active: NightAnalysis | null;
+  /** Convenience: the active model's seeing estimate, or null. */
+  activeSeeing: SeeingSummary | null;
+  /**
+   * The active model's overall go/no-go verdict for an arbitrary night — used to
+   * colour the day switcher without re-fetching. Runs the same pure pipeline as
+   * the selected night, just against a different window. 'unknown' when there's
+   * no astronomical night (polar midsummer) or no forecast yet.
+   */
+  statusForDate: (date: Date) => ConditionStatus;
   refetch: () => void;
 }
 
@@ -94,13 +140,19 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
 
   const [status, setStatus] = useState<TonightStatus>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [nightWindow, setNightWindow] = useState<NightWindow | null>(null);
-  const [byModel, setByModel] = useState<Record<string, NightAnalysis>>({});
+  // The adapted forecast for the whole fetched week, per model slug. The fetch
+  // depends only on location/models, NOT the selected day — so switching days
+  // re-slices this in memory rather than hitting the network again.
+  const [perModelHours, setPerModelHours] = useState<
+    Record<string, HourPoint[]>
+  >({});
   const [activeModelId, setActiveModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [nonce, setNonce] = useState(0);
 
   const refetch = useCallback(() => setNonce((n) => n + 1), []);
 
+  // Fetch the whole week once per location/model-set. Note dateMs is NOT a
+  // dependency: the selected night is applied later, when we slice + analyze.
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -112,33 +164,15 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
       setStatus('loading');
       setError(null);
 
-      const night = getNightWindow(new Date(dateMs), lat, lon);
-
-      // No dusk-to-dawn window — nothing to fetch or analyze. A valid outcome,
-      // not an error (polar midsummer). Surface it as ready + null window.
-      if (night === null) {
-        if (cancelled) return;
-        setNightWindow(null);
-        setByModel({});
-        setStatus('ready');
-        return;
-      }
-
       try {
-        const res = await fetchForecast(
-          { lat, lon, models, forecastDays: 2 },
+        const res = await fetchForecastCached(
+          { lat, lon, models, forecastDays: FORECAST_DAYS },
           controller.signal,
         );
         const perModel = adaptForecast(res, { requestedModels: models });
 
-        const analyses: Record<string, NightAnalysis> = {};
-        for (const [modelId, hours] of Object.entries(perModel)) {
-          analyses[modelId] = analyzeNight(hours, night, config);
-        }
-
         if (cancelled) return;
-        setNightWindow(night);
-        setByModel(analyses);
+        setPerModelHours(perModel);
         setStatus('ready');
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
@@ -151,17 +185,43 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
       cancelled = true;
       controller.abort();
     };
-  }, [lat, lon, dateMs, models, config, nonce]);
+  }, [lat, lon, models, nonce]);
+
+  // The selected night's window. Pure astronomy, recomputed when the day (or
+  // location) changes — no refetch. null = no civil night (polar midsummer).
+  const nightWindow = useMemo(
+    () => getNightWindow(new Date(dateMs), lat, lon),
+    [dateMs, lat, lon],
+  );
+
+  // Analyze the fetched week against the selected night. analyzeNight and
+  // analyzeSeeing both window to [start, end] internally, so feeding them the
+  // full week and the chosen window yields exactly that night's verdict.
+  const { byModel, seeingByModel } = useMemo(() => {
+    const analyses: Record<string, NightAnalysis> = {};
+    const seeing: Record<string, SeeingSummary> = {};
+    if (nightWindow) {
+      for (const [modelId, hours] of Object.entries(perModelHours)) {
+        analyses[modelId] = analyzeNight(hours, nightWindow, config);
+        // Seeing is orthogonal to the cloud verdict (clear sky can still boil),
+        // so it's computed alongside, not inside, analyzeNight.
+        seeing[modelId] = analyzeSeeing(hours, nightWindow);
+      }
+    }
+    return { byModel: analyses, seeingByModel: seeing };
+  }, [perModelHours, nightWindow, config]);
 
   // Keep the active model valid: if it isn't among the returned models, fall
-  // back to the default, then to the first available.
+  // back to the default, then to the first available. Keyed on the fetched
+  // week (perModelHours), not byModel, so the picker stays populated even on a
+  // day that has no night window.
   const availableModels = useMemo(
     () =>
-      WEATHER_MODELS.filter((m) => m.id in byModel).map((m) => ({
+      WEATHER_MODELS.filter((m) => m.id in perModelHours).map((m) => ({
         id: m.id,
         label: m.label,
       })),
-    [byModel],
+    [perModelHours],
   );
 
   const resolvedActiveId = useMemo(() => {
@@ -171,16 +231,35 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
   }, [activeModelId, byModel, availableModels]);
 
   const active = byModel[resolvedActiveId] ?? null;
+  const activeSeeing = seeingByModel[resolvedActiveId] ?? null;
+
+  // Verdict for any night, on the active model's already-fetched week. Pure and
+  // cheap, so the day switcher can colour every button by re-running it per day.
+  const activeHours = perModelHours[resolvedActiveId];
+  const statusForDate = useCallback(
+    (date: Date): ConditionStatus => {
+      const window = getNightWindow(date, lat, lon);
+      if (!window || !activeHours) return 'unknown';
+      const analysis = analyzeNight(activeHours, window, config);
+      const seeing = analyzeSeeing(activeHours, window);
+      const summary = describeNight(analysis, window);
+      return summarizeConditions(summary, analysis, seeing).overall;
+    },
+    [activeHours, lat, lon, config],
+  );
 
   return {
     status,
     error,
     nightWindow,
     byModel,
+    seeingByModel,
     availableModels,
     activeModelId: resolvedActiveId,
     setActiveModelId,
     active,
+    activeSeeing,
+    statusForDate,
     refetch,
   };
 }

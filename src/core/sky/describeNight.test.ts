@@ -9,7 +9,7 @@ const base = Date.parse('2026-06-19T22:00:00Z');
 const mk = (clouds: number[]): HourPoint[] =>
   clouds.map((c, i) => ({
     time: base + i * H,
-    cloudCover: c,
+    cloud: { total: c, low: c, mid: c, high: c },
     precipProbability: 0,
   }));
 

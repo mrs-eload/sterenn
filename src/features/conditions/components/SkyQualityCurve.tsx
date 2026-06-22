@@ -1,4 +1,3 @@
-import Paper from '@mui/material/Paper';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useMemo } from 'react';
 import * as echarts from 'echarts/core';
@@ -14,7 +13,7 @@ import type {
 import ReactEchart from '@app/components/base/ReactEchart';
 import type { ClassifiedHour } from '../../../core/sky';
 import { formatHourShort } from '../format';
-import { SectionHeader } from './SectionHeader.tsx';
+import { ExpandableChartCard } from './ExpandableChartCard.tsx';
 
 echarts.use([
   GridComponent,
@@ -43,6 +42,8 @@ export interface SkyQualityCurveProps {
   height?: number;
 }
 
+
+
 export function SkyQualityCurve({ hours, height = 160 }: SkyQualityCurveProps) {
   const theme = useTheme();
 
@@ -63,8 +64,11 @@ export function SkyQualityCurve({ hours, height = 160 }: SkyQualityCurveProps) {
         boundaryGap: false,
         data: hours.map((h) => formatHourShort(h.time)),
         axisTick: { show: false },
-        axisLine: { lineStyle: { color: gridColor } },
+        // A bit brighter than the faint divider so the baseline actually reads.
+        axisLine: { lineStyle: { color: axisColor, opacity: 0.5 } },
         axisLabel: { color: axisColor, fontSize: 11, hideOverlap: true },
+        // One vertical guide per hour, so the eye can pin a curve point to a time.
+        splitLine: { show: true, lineStyle: { color: gridColor, opacity: 0.35 } },
       },
       yAxis: {
         type: 'value',
@@ -78,8 +82,10 @@ export function SkyQualityCurve({ hours, height = 160 }: SkyQualityCurveProps) {
         {
           type: 'line',
           name: 'Clear sky',
-          // Visibility = 100 − cloud cover, so the curve rides high when clear.
-          data: hours.map((h) => 100 - h.cloudCover),
+          // Visibility = 100 − total cloud cover, so the curve rides high when
+          // clear. `total` is Open-Meteo's overall `cloud_cover`; missing →
+          // treat as fully clouded (0 visibility), the pessimistic default.
+          data: hours.map((h) => 100 - (h.cloudCover?.total ?? 100)),
           smooth: true,
           showSymbol: false,
           lineStyle: { color: clearColor, width: 2.5 },
@@ -117,9 +123,8 @@ export function SkyQualityCurve({ hours, height = 160 }: SkyQualityCurveProps) {
   if (hours.length < 2) return null;
 
   return (
-    <Paper>
-      <SectionHeader icon="mingcute:moon-line" title="Clear-sky curve" />
-      <ReactEchart echarts={echarts} option={option} style={{ height }} />
-    </Paper>
+    <ExpandableChartCard icon="mingcute:moon-line" title="Clear-sky curve" height={height}>
+      {(h) => <ReactEchart echarts={echarts} option={option} style={{ height: h }} />}
+    </ExpandableChartCard>
   );
 }

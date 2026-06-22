@@ -12,7 +12,8 @@ const mk = (
 ): HourPoint[] =>
   clouds.map((c, i) => ({
     time: base + i * H,
-    cloudCover: c,
+    // Verdict reads `cloud.total`; layers are irrelevant here, so mirror total.
+    cloud: { total: c, low: c, mid: c, high: c },
     precipProbability: precipAt[i] ?? 0,
   }));
 
@@ -71,7 +72,7 @@ describe('analyzeNight', () => {
 
   it('ignores clear hours outside the night window', () => {
     const hours = mk([90, 90, 90, 90, 90, 90, 90, 90, 90]);
-    hours.unshift({ time: base - H, cloudCover: 0 });
+    hours.unshift({ time: base - H, cloud: { total: 0, low: 0, mid: 0, high: 0 } });
     const r = analyzeNight(hours, night);
     expect(r.good).toBe(false);
     expect(r.hours.length).toBe(9);

@@ -77,7 +77,8 @@ export function HourlyTable({ hours }: HourlyTableProps) {
       headerAlign: 'right',
       sortable: false,
       resizable: false,
-      valueGetter: (_value, row) => `${row.cloudCover}%`,
+      valueGetter: (_value, row) =>
+        row.cloudCover?.total != null ? `${row.cloudCover.total}%` : '—',
     },
     {
       field: 'verdict',

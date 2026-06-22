@@ -7,14 +7,15 @@ import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import IconifyIcon from '@app/components/base/IconifyIcon';
 import type {
+  ConditionsSummary,
   MoonSummary,
-  NightReason,
   NightSummary,
   NightWindow,
 } from '../../../core/sky';
 import { cardTones } from './tones.ts';
 import { WindowComponent } from './WindowComponent.tsx';
 import { MoonPhaseComponent } from './MoonPhaseComponent.tsx';
+import { ConditionsBreakdown } from './ConditionsBreakdown.tsx';
 
 /**
  * The headline verdict widget — the whole left-hand column. Owns the layout and
@@ -23,39 +24,92 @@ import { MoonPhaseComponent } from './MoonPhaseComponent.tsx';
  * icon/colour.
  *
  * A "good" night is celebrated with the theme's translucent green→violet wash;
- * every other verdict stays on the calm dark surface so the card doesn't cry wolf
- * for a sky that's simply too short or too bright to shoot (not bad weather).
+ * every other verdict stays on the calm dark surface. A NO-GO is accented in the
+ * same red as precipitation in the observation window, a "not ideal" (soft
+ * seeing) in amber, so the headline colour matches the breakdown beneath it.
  */
 export interface NightCardProps {
   summary: NightSummary;
+  /** The combined go / not-ideal / no-go verdict + per-factor breakdown. */
+  conditions: ConditionsSummary;
   window: NightWindow | null;
   location?: string;
+  /**
+   * The evening the night begins — drives the kicker label. The forecast date is
+   * selectable, so the kicker names the night ("Monday, June 25th") rather than
+   * always claiming "tonight".
+   */
+  date?: Date;
   /** Moon context for the night, or null when there's no window to describe. */
   moon?: MoonSummary | null;
 }
 
-const REASON_ICON: Record<NightReason, string> = {
-  good: 'mingcute:moon-stars-fill',
-  'too-cloudy': 'mingcute:cloud-fill',
-  'too-short': 'mingcute:time-fill',
-  'no-night': 'mingcute:sun-fill',
-};
+/** "st" / "nd" / "rd" / "th" for a day-of-month, English ordinal rules. */
+function ordinalSuffix(day: number): string {
+  // 11th–13th are the exceptions: they take "th" despite ending in 1/2/3.
+  const teens = day % 100;
+  if (teens >= 11 && teens <= 13) return 'th';
+  switch (day % 10) {
+    case 1:
+      return 'st';
+    case 2:
+      return 'nd';
+    case 3:
+      return 'rd';
+    default:
+      return 'th';
+  }
+}
 
-export function NightCard({ summary, window, location, moon }: NightCardProps) {
+/** Formats the night's evening date as e.g. "Monday, June 25th". */
+function formatNightDate(date: Date): string {
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = date.getDate();
+  return `${weekday}, ${month} ${day}${ordinalSuffix(day)}`;
+}
+
+export function NightCard({ summary, conditions, window, location, date, moon }: NightCardProps) {
   const theme = useTheme();
-  const isGo = summary.good;
-  const icon = REASON_ICON[summary.reason];
+  const { overall } = conditions;
+  const isGo = overall === 'go';
   const tones = cardTones(theme, isGo);
   const white = theme.palette.common.white;
 
-  // Reason → accent. "good" green, cloudy amber; the two "can't win" reasons
-  // (too short / no night) are neutral, not alarming red — the sky's fault.
+  // Verdict → accent, mirroring the verdict palette used across the feature:
+  // GO green, "not ideal" amber, NO-GO the same red as precipitation.
   const accent =
-    summary.reason === 'good'
+    overall === 'go'
       ? (theme.palette.verdict?.clear ?? theme.palette.success.main)
-      : summary.reason === 'too-cloudy'
+      : overall === 'caution'
         ? (theme.palette.verdict?.cloud ?? theme.palette.warning.main)
-        : theme.palette.text.disabled;
+        : overall === 'no-go'
+          ? (theme.palette.verdict?.precip ?? theme.palette.error.main)
+          : theme.palette.text.disabled;
+
+  // Icon: the winning verdict for GO, otherwise the factor that drove the
+  // verdict — a rainy cloud for precip, a stricken (closed) eye for soft/poor
+  // seeing, a plain cloud for cloud cover — with the window cases (too-short /
+  // no-night) carried by the weather reason. `deciding` already ranks precip
+  // above cloud, so a rainy-and-cloudy night shows rain, not a bare cloud.
+  const icon = isGo
+    ? 'mingcute:moon-stars-fill'
+    : summary.reason === 'no-night'
+      ? 'mingcute:sun-fill'
+      : summary.reason === 'too-short'
+        ? 'mingcute:time-fill'
+        : conditions.deciding === 'precip'
+          ? 'mingcute:heavy-rain-fill'
+          : conditions.deciding === 'seeing'
+            ? 'mingcute:eye-close-fill'
+            : 'mingcute:cloud-fill';
+
+  const chipLabel =
+    overall === 'go'
+      ? 'GO'
+      : overall === 'caution'
+        ? 'NOT IDEAL'
+        : 'NO-GO';
 
   const badgeBg = isGo ? alpha(white, 0.18) : alpha(accent, 0.16);
   const badgeColor = isGo ? white : accent;
@@ -98,17 +152,25 @@ export function NightCard({ summary, window, location, moon }: NightCardProps) {
         <IconifyIcon icon={icon} sx={{ fontSize: 176 }} />
       </Box>
 
+      {/* Location leads as the prominent heading; the night's date drops to the
+          quiet kicker beneath it (swapped 2026-06-22 so the place you're
+          observing from is the first thing read). The date is selectable, so the
+          kicker names the actual night rather than always claiming "tonight". */}
+      {location && (
+        <Typography
+          variant="h6"
+          sx={{ position: 'relative', color: tones.primary, fontWeight: 600, lineHeight: 1.2 }}
+        >
+          {location}
+        </Typography>
+      )}
       <Typography
         variant="overline"
         sx={{ position: 'relative', color: tones.secondary, letterSpacing: 1.5 }}
       >
-        Tonight's conditions
+        {date ? formatNightDate(date) : "Tonight's conditions"}
+        {location ? ' · dusk to dawn' : ''}
       </Typography>
-      {location && (
-        <Typography variant="body2" sx={{ position: 'relative', color: tones.secondary }}>
-          {location} · dusk to dawn
-        </Typography>
-      )}
 
       <Stack
         direction="row"
@@ -131,7 +193,7 @@ export function NightCard({ summary, window, location, moon }: NightCardProps) {
         </Box>
         <Stack direction="column" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
           <Chip
-            label={isGo ? 'GO' : 'NO-GO'}
+            label={chipLabel}
             size="small"
             sx={{
               // Solid green pill, dark text — high internal contrast and not as
@@ -144,7 +206,7 @@ export function NightCard({ summary, window, location, moon }: NightCardProps) {
             }}
           />
           <Typography variant="h5" sx={{ color: tones.primary, lineHeight: 1.2 }}>
-            {summary.headline}
+            {conditions.headline}
           </Typography>
         </Stack>
       </Stack>
@@ -152,6 +214,18 @@ export function NightCard({ summary, window, location, moon }: NightCardProps) {
       <Divider
         sx={{ position: 'relative', my: 2.5, borderColor: dividerColor, bgcolor: dividerColor }}
       />
+
+      {/* The factor breakdown — only worth showing once at least one factor has
+          real data (a window with a forecast); on a no-night/no-data card every
+          factor is "unknown" and the headline already carries the reason. */}
+      {conditions.factors.some((f) => f.status !== 'unknown') && (
+        <>
+          <ConditionsBreakdown conditions={conditions} isGo={isGo} />
+          <Divider
+            sx={{ position: 'relative', my: 2.5, borderColor: dividerColor, bgcolor: dividerColor }}
+          />
+        </>
+      )}
 
       {window && (
         <WindowComponent
@@ -176,7 +250,7 @@ export function NightCard({ summary, window, location, moon }: NightCardProps) {
         variant="body2"
         sx={{ position: 'relative', mt: 'auto', color: tones.secondary }}
       >
-        {summary.detail}
+        {conditions.detail}
       </Typography>
     </Paper>
   );

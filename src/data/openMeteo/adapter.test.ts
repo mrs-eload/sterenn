@@ -19,6 +19,9 @@ describe('adaptForecast', () => {
     const res = baseRes({
       time: [1000, 4600],
       cloud_cover: [10, 80],
+      cloud_cover_low: [5, 40],
+      cloud_cover_mid: [3, 30],
+      cloud_cover_high: [2, 10],
       precipitation: [0, 1.2],
       precipitation_probability: [5, 60],
     });
@@ -26,11 +29,11 @@ describe('adaptForecast', () => {
     expect(Object.keys(out)).toEqual(['best_match']);
     expect(out.best_match[0]).toEqual({
       time: 1_000_000, // seconds -> ms
-      cloudCover: 10,
+      cloud: { total: 10, low: 5, mid: 3, high: 2 },
       precipMm: 0,
       precipProbability: 5,
     });
-    expect(out.best_match[1].cloudCover).toBe(80);
+    expect(out.best_match[1].cloud.total).toBe(80);
   });
 
   it('splits a multi-model (suffixed) response into per-model arrays', () => {
@@ -50,9 +53,32 @@ describe('adaptForecast', () => {
       'ecmwf_ifs025',
       'meteofrance_arome_france',
     ]);
-    expect(out.ecmwf_ifs025[0].cloudCover).toBe(10);
-    expect(out.meteofrance_arome_france[0].cloudCover).toBe(90);
+    expect(out.ecmwf_ifs025[0].cloud.total).toBe(10);
+    expect(out.meteofrance_arome_france[0].cloud.total).toBe(90);
     expect(out.meteofrance_arome_france[1].precipMm).toBe(3);
+  });
+
+  it('keeps cloud layers separate from the total in a suffixed response', () => {
+    // The collision the BASE_VARS ordering guards against: `cloud_cover_low_<model>`
+    // must not be read as base `cloud_cover` + suffix `low_<model>` (a phantom
+    // model). Exactly one model should come back, with the layers populated.
+    const res = baseRes({
+      time: [1000],
+      cloud_cover_icon_eu: [60],
+      cloud_cover_low_icon_eu: [50],
+      cloud_cover_mid_icon_eu: [20],
+      cloud_cover_high_icon_eu: [5],
+      precipitation_icon_eu: [0],
+      precipitation_probability_icon_eu: [0],
+    });
+    const out = adaptForecast(res, { requestedModels: ['icon_eu'] });
+    expect(Object.keys(out)).toEqual(['icon_eu']);
+    expect(out.icon_eu[0].cloud).toEqual({
+      total: 60,
+      low: 50,
+      mid: 20,
+      high: 5,
+    });
   });
 
   it('treats missing/null cloud data as overcast (pessimistic)', () => {
@@ -63,7 +89,8 @@ describe('adaptForecast', () => {
       precipitation_probability: [null],
     });
     const out = adaptForecast(res, { requestedModels: ['m'] });
-    expect(out.m[0].cloudCover).toBe(100); // overcast
+    // total + every layer default to overcast when absent.
+    expect(out.m[0].cloud).toEqual({ total: 100, low: 100, mid: 100, high: 100 });
     expect(out.m[0].precipMm).toBe(0);
     expect(out.m[0].precipProbability).toBe(0);
   });

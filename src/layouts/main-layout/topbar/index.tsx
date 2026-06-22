@@ -58,7 +58,7 @@ const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
             display: { xs: 'none', lg: 'block' },
           }}
         >
-          Analytics
+          Weather forecast
         </Typography>
       </Stack>
 

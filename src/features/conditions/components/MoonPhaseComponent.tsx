@@ -1,10 +1,11 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import type { MoonSummary } from '../../../core/sky';
+import IconifyIcon from '@app/components/base/IconifyIcon';
 import { formatClock } from '../format.ts';
-import { MoonPhase } from './MoonPhase.tsx';
+import { moonPhaseIcon } from './moonPhaseIcon.ts';
 import { Stat } from './Stat.tsx';
 import { cardTones } from './tones.ts';
 
@@ -22,24 +23,23 @@ export interface MoonPhaseComponentProps {
 export function MoonPhaseComponent({ moon, isGo }: MoonPhaseComponentProps) {
   const theme = useTheme();
   const tones = cardTones(theme, isGo);
-  const litColor = isGo ? theme.palette.common.white : theme.palette.grey[100];
 
   const timing = !moon.upDuringNight
-    ? { icon: 'mingcute:moon-line', label: 'Moonlight', value: 'None tonight' }
+    ? { icon: 'meteocons:moon-new-fill', label: 'Moonlight', value: 'None tonight' }
     : moon.set !== null
       ? {
-          icon: 'mingcute:arrow-down-circle-line',
+          icon: 'meteocons:moonset-fill',
           label: 'Moon sets',
           value: formatClock(moon.set),
         }
       : moon.rise !== null
         ? {
-            icon: 'mingcute:arrow-up-circle-line',
+            icon: 'meteocons:moonrise-fill',
             label: 'Moon rises',
             value: formatClock(moon.rise),
           }
         : {
-            icon: 'mingcute:arrow-up-circle-line',
+            icon: 'meteocons:moonrise-fill',
             label: 'Moon',
             value: `Up · ${Math.round(moon.peakAltitudeDeg)}° peak`,
           };
@@ -48,12 +48,10 @@ export function MoonPhaseComponent({ moon, isGo }: MoonPhaseComponentProps) {
     // direction="column": the theme defaults MuiStack to "row" (see Stat/window).
     <Stack direction="column" spacing={1.75} sx={{ position: 'relative', mb: 2.5 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        <MoonPhase
-          phase={moon.phase}
-          illumination={moon.illumination}
-          size={46}
-          litColor={litColor}
-          ringColor={alpha(litColor, 0.28)}
+        <IconifyIcon
+          icon={moonPhaseIcon(moon.phaseName)}
+          aria-label={moon.phaseName}
+          sx={{ fontSize: 56, flexShrink: 0 }}
         />
         <Box>
           <Typography

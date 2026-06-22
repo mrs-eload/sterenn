@@ -55,6 +55,10 @@ npm run build        # tsc -b && vite build (also a typecheck gate)
    When you fix a bug, add the test that would have caught it (see the
    prefix-collision test in `adapter.test.ts` — that's the standard).
 
+   **Verification step is TS-check only.** When verifying a change in progress,
+   run the typecheck (`npm run build`) — do **not** run `npm test`. Save the full
+   suite for the commit gate above, not for routine verification.
+
 2. **Verify, don't assume.** This codebase was built by actually running the code
    and catching real bugs (a prefix collision, a suncalc import shape, a latitude
    edge case). Don't hand-wave that something "should work" — run it. If you can't

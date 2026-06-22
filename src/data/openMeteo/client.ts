@@ -1,5 +1,4 @@
 import { HOURLY_VARS, type HourlyVar } from './models.ts';
-import { day1 } from "@app/data/openMeteo/examples/day1.ts";
 /**
  * Open-Meteo /v1/forecast response (the slice we use).
  *
@@ -48,6 +47,9 @@ export function buildForecastUrl(p: FetchForecastParams): string {
   url.searchParams.set('hourly', HOURLY_VARS.join(','));
   url.searchParams.set('models', p.models.join(','));
   url.searchParams.set('forecast_days', String(p.forecastDays ?? 2));
+  // Jet-stream wind feeds the seeing estimate; core works in m/s, so ask the
+  // API for m/s rather than the default km/h and avoid a conversion downstream.
+  url.searchParams.set('wind_speed_unit', 'ms');
   // unixtime + GMT keeps the adapter free of timezone parsing.
   url.searchParams.set('timeformat', 'unixtime');
   url.searchParams.set('timezone', 'GMT');
@@ -58,14 +60,8 @@ export async function fetchForecast(
   p: FetchForecastParams,
   signal?: AbortSignal,
 ): Promise<OpenMeteoResponse> {
-
-  //TEST DATA
-  return day1;
-
   const res = await fetch(buildForecastUrl(p), { signal });
   if (!res.ok) {
-    if(res.status === 429){
-    }
     throw new Error(`Open-Meteo ${res.status}: ${res.statusText}`);
   }
   return (await res.json()) as OpenMeteoResponse;

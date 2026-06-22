@@ -18,7 +18,7 @@ export interface ModelPickerProps {
 export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   if (models.length === 0) return null;
   return (
-    <Paper>
+    <Paper sx={{ width: 1, height: 1 }}>
       <SectionHeader icon="mingcute:cloud-line" title="Weather model" />
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
         {models.map((m) => {

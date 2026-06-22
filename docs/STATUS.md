@@ -4,7 +4,7 @@ _Living document. Update it when a brick lands. The point: anyone (or any tool)
 opening this repo cold should know what exists, what's proven, and what's next
 without reading chat history._
 
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-22
 
 ## What sterenn is
 
@@ -51,7 +51,8 @@ See `docs/adr/0001` for the design, `docs/adr/0002` for the data layer as built.
 | `core/sky/describeNight` | ✅ Done, 4 tests | Pure verdict/reason: distinguishes "too cloudy" / "not dark long enough" / "no night". |
 | `core/moon` | ⬜ Empty | Moon illumination/phase/rise-set via suncalc — not built. |
 | `data/openMeteo` | ✅ Built, 4 tests, **live-verified** | Multi-model shape + slugs confirmed 2026-06-20. Dead slug `ecmwf_ifs04` replaced with `ecmwf_aifs025_single`. |
-| `features/conditions` | ✅ Built | MUI dark theme + `useTonight` hook + NightCard, ObservationWindowBar, SkyQualityCurve, HourlyTable, ModelPicker. |
+| `features/conditions` | ✅ Built | MUI dark theme + `useTonight` hook + NightCard, ObservationWindowBar, SkyQualityCurve, HourlyTable, ModelPicker, LocationSearch (geocode a city or type coordinates). |
+| `data/openMeteo/geocoding` | ✅ Built, 12 tests, **live-verified** | City name → coords via Open-Meteo geocoding (no key). Pure `parseCoordinates` for typed lat/lon. Hit/miss shapes confirmed live 2026-06-22. |
 | Backend (NestJS) | ⬜ Not needed yet | Deferred until an API forces it. |
 
 ## ⚠️ Known caveats / gotchas
@@ -87,9 +88,10 @@ suncalc (already a dependency). Build `core/moon` pure + tested first, then
 surface it (likely as a column/section inside the conditions view, as the
 roadmap notes it may start there before graduating to its own subject).
 
-Possible polish on Conditions before moving on: a location picker (the hook
-already accepts `lat`/`lon`; only `DEFAULT_LOCATION` is wired), and an
-`analyzeNight` config UI. Neither blocks shipping subject 1.
+Possible polish on Conditions before moving on: an `analyzeNight` config UI.
+Doesn't block shipping subject 1. (The location picker shipped 2026-06-22 —
+`LocationSearch` geocodes a typed city or accepts raw coordinates, via
+`data/openMeteo/geocoding`.)
 
 Keep components dumb: they render, they don't compute. All logic stays in
 `core/` and the hook.

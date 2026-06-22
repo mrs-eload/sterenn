@@ -31,11 +31,22 @@ export const WEATHER_MODELS: WeatherModel[] = [
 
 export const DEFAULT_MODEL_ID = 'best_match';
 
-/** The Open-Meteo hourly variables this module requests. */
+/**
+ * The Open-Meteo hourly variables this module requests.
+ *
+ * `cloud_cover` is the overall total that drives the verdict and sky-quality
+ * curve; `cloud_cover_low|mid|high` are the per-altitude layers shown in the
+ * Forecast Cloud Coverage chart. `wind_speed_250hPa` is the jet-stream wind
+ * that feeds the seeing estimate (requested in m/s — see `wind_speed_unit`).
+ */
 export const HOURLY_VARS = [
   'cloud_cover',
+  'cloud_cover_low',
+  'cloud_cover_mid',
+  'cloud_cover_high',
   'precipitation',
   'precipitation_probability',
+  'wind_speed_250hPa',
 ] as const;
 
 export type HourlyVar = (typeof HOURLY_VARS)[number];
