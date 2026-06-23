@@ -44,16 +44,10 @@ export interface ObservingLocation {
 }
 
 /**
- * Selectable observing locations in Brittany. Their coordinates are passed
- * straight to the live Open-Meteo forecast call.
+ * There is intentionally no default location: the app fetches nothing until the
+ * user picks one. Pass `lat`/`lon` (or leave them undefined) accordingly — the
+ * hook reports status 'idle' while no location is set.
  */
-export const LOCATIONS: ObservingLocation[] = [
-  { id: 'hennebont', label: 'Hennebont', lat: 47.2, lon: -3.26 },
-  { id: 'morlaix', label: 'Morlaix', lat: 48.583, lon: -3.833 },
-];
-
-/** Default observing location. Override via the location picker. */
-export const DEFAULT_LOCATION = LOCATIONS[0];
 
 /**
  * How many forecast days to fetch. The day switcher offers 7 selectable nights
@@ -78,7 +72,8 @@ export interface UseTonightParams {
   config?: Partial<AnalyzeConfig>;
 }
 
-export type TonightStatus = 'loading' | 'error' | 'ready';
+/** 'idle' = no location selected yet, so nothing has been (or will be) fetched. */
+export type TonightStatus = 'idle' | 'loading' | 'error' | 'ready';
 
 export interface UseTonightResult {
   status: TonightStatus;
@@ -110,8 +105,10 @@ export interface UseTonightResult {
 const ALL_MODEL_IDS = WEATHER_MODELS.map((m) => m.id);
 
 export function useTonight(params: UseTonightParams = {}): UseTonightResult {
-  const lat = params.lat ?? DEFAULT_LOCATION.lat;
-  const lon = params.lon ?? DEFAULT_LOCATION.lon;
+  // No default: when either coordinate is missing there's no location, and the
+  // hook stays idle (fetches nothing) until the caller supplies a pair.
+  const { lat, lon } = params;
+  const hasLocation = lat != null && lon != null;
 
   // Freeze "now" once at mount when the caller doesn't pin a date. Computing
   // `new Date()` inline on every render would give a new dateMs each render,
@@ -138,7 +135,9 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
     [configKey],
   );
 
-  const [status, setStatus] = useState<TonightStatus>('loading');
+  const [status, setStatus] = useState<TonightStatus>(
+    hasLocation ? 'loading' : 'idle',
+  );
   const [error, setError] = useState<string | null>(null);
   // The adapted forecast for the whole fetched week, per model slug. The fetch
   // depends only on location/models, NOT the selected day — so switching days
@@ -154,6 +153,14 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
   // Fetch the whole week once per location/model-set. Note dateMs is NOT a
   // dependency: the selected night is applied later, when we slice + analyze.
   useEffect(() => {
+    // No location → nothing to fetch. Drop any prior week and sit idle.
+    if (lat == null || lon == null) {
+      setPerModelHours({});
+      setError(null);
+      setStatus('idle');
+      return;
+    }
+
     const controller = new AbortController();
     let cancelled = false;
 
@@ -190,7 +197,10 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
   // The selected night's window. Pure astronomy, recomputed when the day (or
   // location) changes — no refetch. null = no civil night (polar midsummer).
   const nightWindow = useMemo(
-    () => getNightWindow(new Date(dateMs), lat, lon),
+    () =>
+      lat == null || lon == null
+        ? null
+        : getNightWindow(new Date(dateMs), lat, lon),
     [dateMs, lat, lon],
   );
 
@@ -238,6 +248,7 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
   const activeHours = perModelHours[resolvedActiveId];
   const statusForDate = useCallback(
     (date: Date): ConditionStatus => {
+      if (lat == null || lon == null) return 'unknown';
       const window = getNightWindow(date, lat, lon);
       if (!window || !activeHours) return 'unknown';
       const analysis = analyzeNight(activeHours, window, config);

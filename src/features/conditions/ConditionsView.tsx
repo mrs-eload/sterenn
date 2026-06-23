@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
@@ -7,9 +9,9 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { describeNight, describeMoon, summarizeConditions } from '../../core/sky';
+import { parseCoordinates } from '../../data/openMeteo';
 import {
   useTonight,
-  DEFAULT_LOCATION,
   SELECTABLE_DAYS,
   type ObservingLocation,
 } from './hooks/useTonight.ts';
@@ -28,6 +30,26 @@ import { HourlyTable } from './components/HourlyTable.tsx';
 const GUTTER = { xs: 2.5, sm: 3, lg: 3.75 };
 
 /**
+ * Build a location from the URL's ?lat=&lon= query, so a coordinate URL is a
+ * direct link to that site's forecast. Returns null when either is missing or
+ * out of range. The label is the coordinates themselves — a fresh visit has no
+ * place name, only the numbers the URL carries.
+ */
+function locationFromParams(params: URLSearchParams): ObservingLocation | null {
+  const lat = params.get('lat');
+  const lon = params.get('lon');
+  if (lat == null || lon == null) return null;
+  const parsed = parseCoordinates(`${lat}, ${lon}`);
+  if (!parsed) return null;
+  return {
+    id: `coords:${parsed.lat},${parsed.lon}`,
+    label: `${parsed.lat}, ${parsed.lon}`,
+    lat: parsed.lat,
+    lon: parsed.lon,
+  };
+}
+
+/**
  * Tonight's-conditions screen. The only stateful piece — it owns the hook and
  * threads its output to dumb widgets. No astronomy or fetching here.
  *
@@ -35,9 +57,16 @@ const GUTTER = { xs: 2.5, sm: 3, lg: 3.75 };
  * column; everything else stacks on the left, weather-model buttons on top.
  */
 export function ConditionsView() {
+  // The URL's ?lat=&lon= is the source of truth for which site we're forecasting,
+  // so a coordinate link opens straight onto that forecast. State seeds from the
+  // URL once at mount; there's no default, so a bare "/" starts with no location.
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // A full location object, not just an id: it can be a recent pick, a geocoded
   // city, or a typed coordinate pair, so there's no fixed list to look it up in.
-  const [location, setLocation] = useState<ObservingLocation>(DEFAULT_LOCATION);
+  const [location, setLocation] = useState<ObservingLocation | null>(() =>
+    locationFromParams(searchParams),
+  );
 
   // Recently used locations, persisted in localStorage. Selecting one — whether
   // from the search results or a recent chip — both activates it and bumps it to
@@ -47,8 +76,20 @@ export function ConditionsView() {
     (loc: ObservingLocation) => {
       setLocation(loc);
       remember(loc);
+      // Reflect the chosen site in the URL so it's shareable/bookmarkable. We
+      // keep the rich label in state for this session, but the URL carries only
+      // the coordinates the forecast actually needs.
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('lat', String(loc.lat));
+          next.set('lon', String(loc.lon));
+          return next;
+        },
+        { replace: true },
+      );
     },
-    [remember],
+    [remember, setSearchParams],
   );
 
   // The selectable nights: tonight + the next few, frozen once at mount so the
@@ -85,8 +126,8 @@ export function ConditionsView() {
     statusForDate,
     refetch,
   } = useTonight({
-    lat: location.lat,
-    lon: location.lon,
+    lat: location?.lat,
+    lon: location?.lon,
     date: selectedDay.date,
   });
 
@@ -107,7 +148,7 @@ export function ConditionsView() {
   // location, not on weather — so it's independent of the active model.
   const moon = useMemo(
     () =>
-      nightWindow
+      nightWindow && location
         ? describeMoon(nightWindow, location.lat, location.lon)
         : null,
     [nightWindow, location],
@@ -120,6 +161,29 @@ export function ConditionsView() {
     () => Object.fromEntries(days.map((d) => [d.id, statusForDate(d.date)])),
     [days, statusForDate],
   );
+
+  // No location chosen yet: there's nothing to fetch or compute, so the screen
+  // is just the picker and a prompt. Selecting a location flips us out of idle.
+  if (status === 'idle') {
+    return (
+      <Grid container spacing={GUTTER} sx={{ justifyContent: 'center' }}>
+        <Grid size={{ xs: 12, sm: 9, md: 6, lg: 5 }}>
+          <Stack direction="column" spacing={GUTTER} sx={{ alignItems: 'center' }}>
+            <Typography color="text.secondary" sx={{ textAlign: 'center' }}>
+              Choose a location to see tonight's observing conditions.
+            </Typography>
+            <Box sx={{ width: 1 }}>
+              <LocationSearch
+                recents={recents}
+                value={location}
+                onChange={chooseLocation}
+              />
+            </Box>
+          </Stack>
+        </Grid>
+      </Grid>
+    );
+  }
 
   if (status === 'loading') {
     return (
@@ -161,7 +225,7 @@ export function ConditionsView() {
             summary={summary}
             conditions={conditions}
             window={nightWindow}
-            location={location.label}
+            location={location?.label ?? ''}
             date={selectedDay.date}
             moon={moon}
           />
@@ -189,7 +253,7 @@ export function ConditionsView() {
           summary={summary}
           conditions={conditions}
           window={nightWindow}
-          location={location.label}
+          location={location?.label ?? ''}
           date={selectedDay.date}
           moon={moon}
         />

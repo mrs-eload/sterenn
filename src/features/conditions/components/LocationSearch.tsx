@@ -27,8 +27,8 @@ import { SectionHeader } from './SectionHeader.tsx';
 export interface LocationSearchProps {
   /** Recently used locations, most-recent-first, shown as one-tap chips. */
   recents: ObservingLocation[];
-  /** The currently active location (drives the chip highlight). */
-  value: ObservingLocation;
+  /** The currently active location (drives the chip highlight); null when none chosen. */
+  value: ObservingLocation | null;
   onChange: (location: ObservingLocation) => void;
 }
 
@@ -166,7 +166,7 @@ export function LocationSearch({ recents, value, onChange }: LocationSearchProps
           </Typography>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
             {recents.map((loc) => {
-              const active = loc.id === value.id;
+              const active = loc.id === value?.id;
               return (
                 <Chip
                   key={loc.id}
