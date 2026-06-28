@@ -1,90 +1,52 @@
 import paths from './paths';
 
-export interface SubMenuItem {
-  name: string;
-  pathName: string;
-  path: string;
-  active?: boolean;
-  items?: SubMenuItem[];
-}
-
-export interface MenuItem {
+/**
+ * A top-level app section. The whole nav — both the desktop top bar and the
+ * mobile drawer — is driven off this one list, so adding a section is a
+ * one-line change here (plus its route + page).
+ */
+export interface NavItem {
+  /** Stable key, also the section identity. */
   id: string;
-  subheader: string;
-  path?: string;
-  icon?: string;
-  avatar?: string;
-  active?: boolean;
-  items?: SubMenuItem[];
+  /** Short label shown in the top nav and the mobile drawer. */
+  title: string;
+  /** Absolute route path. */
+  path: string;
+  /** Iconify icon name (mingcute set) — shown beside the label in the drawer. */
+  icon: string;
+  /**
+   * Exact-match only. Needed for the index route ('/'), which would otherwise
+   * read as "active" on every page since every path starts with '/'.
+   */
+  end?: boolean;
 }
 
-const sitemap: MenuItem[] = [
+const navItems: NavItem[] = [
   {
-    id: 'dashboard',
-    subheader: 'Dashboard',
-    path: '/',
-    icon: 'mingcute:home-1-fill',
-    active: true,
+    id: 'home',
+    title: 'Home',
+    path: paths.home,
+    icon: 'mingcute:home-3-line',
+    end: true,
   },
   {
-    id: 'features',
-    subheader: 'Features',
-    path: '#!',
-    icon: 'mingcute:star-fill',
+    id: 'weather',
+    title: 'Weather',
+    path: paths.weather,
+    icon: 'mingcute:cloud-line',
   },
   {
-    id: 'users',
-    subheader: 'Users',
-    path: '#!',
-    icon: 'mingcute:user-2-fill',
+    id: 'equipment',
+    title: 'Equipment',
+    path: paths.equipment,
+    icon: 'mingcute:camera-2-line',
   },
   {
-    id: 'pricing',
-    subheader: 'Pricing',
-    path: '#!',
-    icon: 'mingcute:currency-dollar-2-line',
-  },
-  {
-    id: 'integrations',
-    subheader: 'Integrations',
-    path: '#!',
-    icon: 'mingcute:plugin-2-fill',
-  },
-  {
-    id: 'authentication',
-    subheader: 'Authentication',
-    icon: 'mingcute:safe-lock-fill',
-    items: [
-      {
-        name: 'Signin',
-        pathName: 'signin',
-        path: paths.signin,
-      },
-      {
-        name: 'Signup',
-        pathName: 'signup',
-        path: paths.signup,
-      },
-    ],
-  },
-  {
-    id: 'settings',
-    subheader: 'Settings',
-    path: '#!',
-    icon: 'material-symbols:settings-rounded',
-    active: true,
-  },
-  {
-    id: 'template-pages',
-    subheader: 'Template pages',
-    path: '#!',
-    icon: 'mingcute:document-2-fill',
-  },
-  {
-    id: 'account-settings',
-    subheader: 'John Carter',
-    path: '#!',
+    id: 'targets',
+    title: 'Targets',
+    path: paths.targets,
+    icon: 'mingcute:star-line',
   },
 ];
 
-export default sitemap;
+export default navItems;

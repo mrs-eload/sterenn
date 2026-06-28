@@ -6,7 +6,10 @@ import PageLoader from '@app/components/loader/PageLoader';
 import Error404 from '@app/pages/Error404';
 
 const App = lazy(() => import('@app/App'));
+const Home = lazy(() => import('@app/pages/Home'));
 const Dashboard = lazy(() => import('@app/pages/Dashboard'));
+const Equipment = lazy(() => import('@app/pages/Equipment'));
+const Targets = lazy(() => import('@app/pages/Targets'));
 
 const router = createBrowserRouter(
   [
@@ -29,7 +32,19 @@ const router = createBrowserRouter(
           children: [
             {
               index: true,
+              element: <Home />,
+            },
+            {
+              path: 'weather',
               element: <Dashboard />,
+            },
+            {
+              path: 'equipment',
+              element: <Equipment />,
+            },
+            {
+              path: 'targets',
+              element: <Targets />,
             },
           ],
         },

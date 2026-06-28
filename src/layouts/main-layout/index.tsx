@@ -9,8 +9,12 @@ const MainLayout = ({ children }: PropsWithChildren) => {
   const [isClosing, setIsClosing] = useState(false);
 
   return (
-    <Stack sx={{ width: 1, minHeight: '100vh' }}>
+    <Stack direction="column" sx={{ width: 1, minHeight: '100vh' }}>
+      {/* Full-width top bar holds the brand + section nav across the whole app. */}
+      <Topbar isClosing={isClosing} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      {/* Mounts the mobile nav drawer (a portal); invisible until opened. */}
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} setIsClosing={setIsClosing} />
+
       <Stack
         component="main"
         direction="column"
@@ -21,7 +25,6 @@ const MainLayout = ({ children }: PropsWithChildren) => {
           flexGrow: 1,
         }}
       >
-        <Topbar isClosing={isClosing} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
         {children}
         <Footer />
       </Stack>

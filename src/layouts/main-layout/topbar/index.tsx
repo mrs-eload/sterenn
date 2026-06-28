@@ -1,16 +1,13 @@
-import { fontFamily } from '@app/theme/typography';
-import Link from '@mui/material/Link';
+import { Link as RouterLink } from 'react-router';
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
-import Toolbar from '@mui/material/Toolbar';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import IconifyIcon from '@app/components/base/IconifyIcon';
-import Image from '@app/components/base/Image';
-import LanguageSelect from './LanguageSelect';
-import ProfileMenu from './ProfileMenu';
-import Logo from '@app/assets/images/logo.png';
+import { fontFamily } from '@app/theme/typography';
+import { Logo5 as Logo } from '@app/theme/icons/Logo5';
+import NavLinks from './NavLinks';
 
 interface TopbarProps {
   isClosing: boolean;
@@ -18,62 +15,84 @@ interface TopbarProps {
   setMobileOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+/**
+ * The app's only persistent chrome: a full-width top bar holding the brand and,
+ * on desktop, the section nav. Below `lg` the links collapse into the mobile
+ * drawer (see ../sidebar), reached via the menu button here. Sticky so the nav
+ * stays put as the dashboard scrolls.
+ */
 const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
   const handleDrawerToggle = () => {
+    // Guard against toggling open again mid-close, which would flicker the drawer.
     if (!isClosing) {
       setMobileOpen(!mobileOpen);
     }
   };
 
   return (
-    <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', mb: { xs: 0, lg: 1 } }}>
-      <Stack spacing={2} sx={{ alignItems: 'center' }}>
-        <Toolbar sx={{ display: 'flex' }}>
-          <IconButton
-            size="medium"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            onClick={handleDrawerToggle}
+    <Box
+      component="header"
+      sx={{
+        position: 'sticky',
+        top: 0,
+        zIndex: (theme) => theme.zIndex.appBar,
+        bgcolor: 'info.darker',
+        borderBottom: 1,
+        borderColor: 'info.main',
+      }}
+    >
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          px: { xs: 2, sm: 3, lg: 5 },
+          py: { xs: 1.5, lg: 2 },
+        }}
+      >
+        {/* Brand, then the desktop section nav right beside it. */}
+        <Stack direction="row" spacing={{ xs: 0, lg: 4 }} sx={{ alignItems: 'center', minWidth: 0 }}>
+          <ButtonBase
+            component={RouterLink}
+            to="/"
+            disableRipple
+            aria-label="Sterenn — home"
+            sx={{ alignItems: 'center', gap: 1 }}
           >
-            <IconifyIcon icon="mingcute:menu-line" />
-          </IconButton>
-        </Toolbar>
+            <Logo
+              sx={{ fontSize: 32, color: 'text.primary' }}
+              letterColor="currentColor"
+              ringColor="currentColor"
+            />
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: 1,
+                fontFamily: fontFamily.workSans,
+                color: 'text.primary',
+              }}
+            >
+              Sterenn
+            </Typography>
+          </ButtonBase>
 
-        <ButtonBase
-          component={Link}
-          href="/"
-          disableRipple
-          sx={{ display: { xm: 'block', lg: 'none' } }}
+          <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+            <NavLinks />
+          </Box>
+        </Stack>
+
+        {/* Mobile-only: opens the section drawer. */}
+        <IconButton
+          aria-label="open navigation"
+          onClick={handleDrawerToggle}
+          sx={{ display: { xs: 'inline-flex', lg: 'none' }, color: 'text.secondary' }}
         >
-          <Image src={Logo} alt="logo" height={24} width={24} />
-        </ButtonBase>
-
-        <Typography
-          variant="h5"
-          sx={{
-            fontWeight: 600,
-            letterSpacing: 1,
-            fontFamily: fontFamily.workSans,
-            display: { xs: 'none', lg: 'block' },
-          }}
-        >
-          Weather forecast
-        </Typography>
+          <IconifyIcon icon="mingcute:menu-line" />
+        </IconButton>
       </Stack>
-
-      <Stack spacing={1} sx={{ alignItems: 'center' }}>
-        <LanguageSelect />
-
-        <Tooltip title="Notifications">
-          <IconButton size="large" sx={{ color: 'text.secondary' }}>
-            <IconifyIcon icon="ion:notifications" />
-          </IconButton>
-        </Tooltip>
-
-        <ProfileMenu />
-      </Stack>
-    </Stack>
+    </Box>
   );
 };
 

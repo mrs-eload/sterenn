@@ -6,14 +6,11 @@ export const rootPaths = {
 };
 
 export default {
-  dashboard: `/${rootPaths.pagesRoot}/dashboard`,
-  features: `/${rootPaths.pagesRoot}/features`,
-  users: `/${rootPaths.pagesRoot}/users`,
-  pricing: `/${rootPaths.pagesRoot}/pricing`,
-  integrations: `/${rootPaths.pagesRoot}/integrations`,
-  settings: `/${rootPaths.pagesRoot}/settings`,
-  templatePages: `/${rootPaths.pagesRoot}/template-pages`,
-  accountSettings: `/${rootPaths.pagesRoot}/account-settings`,
+  // App sections — the top-level nav. Home is the index/landing route.
+  home: '/',
+  weather: '/weather',
+  equipment: '/equipment',
+  targets: '/targets',
 
   signin: `/${rootPaths.authRoot}/signin`,
   signup: `/${rootPaths.authRoot}/sign-up`,

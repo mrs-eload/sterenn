@@ -1,99 +1,82 @@
-import { topListData, bottomListData, profileListData } from '@app/data/sidebarListData';
-import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
-import List from '@mui/material/List';
+import { NavLink, Link as RouterLink } from 'react-router';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
+import List from '@mui/material/List';
 import ButtonBase from '@mui/material/ButtonBase';
-import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
-import Divider from '@mui/material/Divider';
-import Image from '@app/components/base/Image';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText, { listItemTextClasses } from '@mui/material/ListItemText';
 import IconifyIcon from '@app/components/base/IconifyIcon';
-import CollapseListItem from './list-items/CollapseListItem';
-import ProfileListItem from './list-items/ProfileListItem';
-import ListItem from './list-items/ListItem';
-import Logo from '@app/assets/images/logo.png';
+import { Logo5 as Logo } from '@app/theme/icons/Logo5';
+import { fontFamily } from '@app/theme/typography';
+import navItems from '@app/routes/sitemap';
 
-const DrawerItems = () => {
+interface DrawerItemsProps {
+  /** Called after any nav choice, so the drawer closes itself on selection. */
+  onNavigate?: () => void;
+}
+
+/**
+ * Contents of the mobile navigation drawer: the brand, then the same section
+ * list the desktop top bar shows — just stacked vertically. Same `navItems`
+ * source and the same NavLink `.active` styling, so the two stay in lockstep.
+ */
+const DrawerItems = ({ onNavigate }: DrawerItemsProps) => {
   return (
-    <>
-      <Stack
-        sx={{
-          pt: 5,
-          pb: 4,
-          px: 3.5,
-          position: 'sticky',
-          top: 0,
-          bgcolor: 'info.darker',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          zIndex: 1000,
-        }}
-      >
-        <ButtonBase component={Link} href="/" disableRipple>
-          <Image src={Logo} alt="logo" height={24} width={24} sx={{ mr: 1 }} />
+    <Stack direction="column" sx={{ height: 1 }}>
+      <Stack direction="row" sx={{ alignItems: 'center', px: 3, py: 3 }}>
+        <ButtonBase
+          component={RouterLink}
+          to="/"
+          onClick={onNavigate}
+          disableRipple
+          aria-label="Sterenn — home"
+          sx={{ alignItems: 'center', gap: 1 }}
+        >
+          <Logo
+            sx={{ fontSize: 30, color: 'text.primary' }}
+            letterColor="currentColor"
+            ringColor="currentColor"
+          />
           <Typography
             variant="h5"
-            color="text.primary"
-            sx={{ fontWeight: 600, letterSpacing: 1 }}
+            sx={{
+              fontWeight: 600,
+              letterSpacing: 1,
+              fontFamily: fontFamily.workSans,
+              color: 'text.primary',
+            }}
           >
-            Dashdark X
+            Sterenn
           </Typography>
         </ButtonBase>
       </Stack>
 
-      <Box sx={{ px: 3.5, pb: 3, pt: 1 }}>
-        <TextField
-          variant="filled"
-          placeholder="Search for..."
-          sx={{ width: 1 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconifyIcon icon="mingcute:search-line" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
-
-      <List component="nav" sx={{ px: 2.5 }}>
-        {topListData.map((route, index) => {
-          return <ListItem key={index} {...route} />;
-        })}
+      <List component="nav" sx={{ px: 2 }}>
+        {navItems.map((item) => (
+          <ListItemButton
+            key={item.id}
+            component={NavLink}
+            to={item.path}
+            end={item.end}
+            onClick={onNavigate}
+            sx={{
+              mb: 0.5,
+              borderRadius: 2,
+              color: 'text.secondary',
+              '& .MuiListItemIcon-root': { color: 'inherit' },
+              [`& .${listItemTextClasses.primary}`]: { color: 'inherit' },
+              '&.active': { color: 'primary.main', bgcolor: 'info.dark' },
+            }}
+          >
+            <ListItemIcon>
+              <IconifyIcon icon={item.icon} />
+            </ListItemIcon>
+            <ListItemText primary={item.title} />
+          </ListItemButton>
+        ))}
       </List>
-
-      <Divider />
-
-      <List component="nav" sx={{ px: 2.5 }}>
-        {bottomListData.map((route) => {
-          if (route.items) {
-            return <CollapseListItem key={route.id} {...route} />;
-          }
-          return <ListItem key={route.id} {...route} />;
-        })}
-      </List>
-
-      <List component="nav" sx={{ px: 2.5 }}>
-        {profileListData && <ProfileListItem {...profileListData} />}
-      </List>
-
-      <Box sx={{ px: 3.5, pt: 6, pb: 12, width: 1 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          endIcon={<IconifyIcon icon="mingcute:arrow-right-line" />}
-          sx={{ width: 1 }}
-        >
-          Get template
-        </Button>
-      </Box>
-    </>
+    </Stack>
   );
 };
 
