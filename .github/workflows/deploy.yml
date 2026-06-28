@@ -23,7 +23,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 24 ships npm 11, matching the npm that generates package-lock.json
+          # locally. npm 10 (Node 20) re-resolves optional peer deps differently
+          # (e.g. tsconfck's `typescript: ^5.0.0`) and wrongly rejects the lock.
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
