@@ -56,7 +56,10 @@ const router = createBrowserRouter(
     },
   ],
   {
-    basename: '/',
+    // Matches Vite's `base` so routing works under the GitHub Pages subpath
+    // (e.g. /sterenn/) and at root in dev. BASE_URL has a trailing slash that
+    // react-router doesn't want, so strip it.
+    basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/',
   },
 );
 
