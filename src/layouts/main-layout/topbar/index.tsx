@@ -70,7 +70,8 @@ const Topbar = ({ isClosing, mobileOpen, setMobileOpen }: TopbarProps) => {
               sx={{
                 fontWeight: 600,
                 letterSpacing: 1,
-                fontFamily: fontFamily.workSans,
+                textTransform: 'uppercase',
+                fontFamily: fontFamily.bretagne,
                 color: 'text.primary',
               }}
             >

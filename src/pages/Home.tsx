@@ -297,8 +297,9 @@ const Home = () => {
           <Typography
             variant="h1"
             sx={{
-              fontFamily: fontFamily.workSans,
+              fontFamily: fontFamily.bretagne,
               letterSpacing: 2,
+              textTransform: 'uppercase',
               fontSize: { xs: '2.5rem', md: '3.5rem' },
             }}
           >

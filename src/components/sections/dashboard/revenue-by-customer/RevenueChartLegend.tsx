@@ -42,7 +42,7 @@ const RevenueChartLegend = ({ data, toggleColor, handleLegendToggle }: LegendPro
           variant="body2"
           color="text.secondary"
           noWrap
-          sx={{ fontFamily: fontFamily.workSans }}
+          sx={{ fontFamily: fontFamily.bretagne }}
         >
           {data.type}
         </Typography>

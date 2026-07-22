@@ -83,7 +83,7 @@ const VisitorsChart = ({ chartRef, data, ...rest }: PolarBarChartProps) => {
             text: '150k',
             fill: theme.palette.text.primary,
             fontSize: theme.typography.h3.fontSize,
-            fontFamily: fontFamily.workSans,
+            fontFamily: fontFamily.bretagne,
             fontWeight: 500,
             letterSpacing: 1,
           },

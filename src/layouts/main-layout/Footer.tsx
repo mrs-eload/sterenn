@@ -13,7 +13,7 @@ const Footer = () => {
       color="text.secondary"
       variant="body2"
     >
-      Made with ❤️ by{' '}
+      Made with ❤️ by Mouet26
     </Typography>
   );
 };

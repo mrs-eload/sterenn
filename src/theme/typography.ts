@@ -1,12 +1,13 @@
 import type { TypographyVariantsOptions } from '@mui/material/styles';
 
 export const fontFamily = {
-  monaSans: ['Mona Sans', 'sans-serif'].join(','),
-  workSans: ['Work Sans', 'sans-serif'].join(','),
+  // Region Bretagne is registered via @font-face in src/index.css; the trailing
+  // sans-serif is the load fallback. It's the app's single typeface.
+  bretagne: ['Region Bretagne', 'sans-serif'].join(','),
 };
 
 const typography: TypographyVariantsOptions = {
-  fontFamily: fontFamily.monaSans,
+  fontFamily: fontFamily.bretagne,
   h1: {
     fontSize: '3rem',
     fontWeight: 700,

@@ -23,7 +23,7 @@ const OrdersStatus = () => {
         spacing={1.5}
         sx={{ px: 3.5, alignItems: 'center', justifyContent: 'space-between' }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 400, fontFamily: fontFamily.workSans }}>
+        <Typography variant="h6" sx={{ fontWeight: 400, fontFamily: fontFamily.bretagne }}>
           Orders Status
         </Typography>
         <Stack spacing={2} sx={{ alignItems: 'center' }}>

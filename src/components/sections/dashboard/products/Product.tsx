@@ -33,7 +33,7 @@ const Product = ({ data }: ProductInfoProps) => {
         </Stack>
       </Stack>
 
-      <Typography variant="caption" sx={{ fontWeight: 400, fontFamily: fontFamily.workSans }}>
+      <Typography variant="caption" sx={{ fontWeight: 400, fontFamily: fontFamily.bretagne }}>
         $ {price}
       </Typography>
     </Stack>

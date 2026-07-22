@@ -16,6 +16,7 @@ import {
   type ObservingLocation,
 } from './hooks/useTonight.ts';
 import { useRecentLocations } from './recentLocations.ts';
+import { currentObservingNightDate } from './observingNight.ts';
 import { LocationSearch } from './components/LocationSearch.tsx';
 import { DayPicker } from './components/DayPicker.tsx';
 import { ModelPicker } from './components/ModelPicker.tsx';
@@ -96,8 +97,11 @@ export function ConditionsView() {
   // list (and its DD-MM labels) doesn't drift across renders. Each id is the
   // day offset from today; the label is the evening the night begins.
   const days = useMemo(() => {
-    const base = new Date();
-    base.setHours(12, 0, 0, 0); // noon — clear of any midnight/DST edge.
+    // Anchor on the night currently in progress, not the calendar date: after
+    // midnight we're still inside last evening's night, so offset 0 stays that
+    // night until it's over rather than flipping to the coming one. Noon-pinned,
+    // so it's clear of any midnight/DST edge.
+    const base = currentObservingNightDate(new Date());
     return Array.from({ length: SELECTABLE_DAYS }, (_, offset) => {
       const date = new Date(base);
       date.setDate(base.getDate() + offset);

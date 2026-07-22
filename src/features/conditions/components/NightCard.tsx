@@ -23,10 +23,11 @@ import { ConditionsBreakdown } from './ConditionsBreakdown.tsx';
  * MoonPhaseComponent. It does no astronomy itself, just maps the reason to an
  * icon/colour.
  *
- * A "good" night is celebrated with the theme's translucent green→violet wash;
- * every other verdict stays on the calm dark surface. A NO-GO is accented in the
- * same red as precipitation in the observation window, a "not ideal" (soft
- * seeing) in amber, so the headline colour matches the breakdown beneath it.
+ * The card stays on the calm dark surface for every verdict, matching the other
+ * cards; the verdict shows through the accent only (green GO chip, badge and
+ * icon). A NO-GO is accented in the same red as precipitation in the observation
+ * window, a "not ideal" (soft seeing) in amber, so the headline colour matches
+ * the breakdown beneath it.
  */
 export interface NightCardProps {
   summary: NightSummary;
@@ -114,11 +115,6 @@ export function NightCard({ summary, conditions, window, location, date, moon }:
   const badgeBg = isGo ? alpha(white, 0.18) : alpha(accent, 0.16);
   const badgeColor = isGo ? white : accent;
 
-  // Translucent green→violet wash. Applied as backgroundImage (not `background`)
-  // so it layers over the Paper's dark surface instead of replacing it, keeping
-  // the card dark enough for white text and the GO chip to read.
-  const heroBg = isGo ? 'linear-gradient(135deg, #3cff9359, #7f25fb47)' : undefined;
-
   // A quiet hairline: info.darker is genuinely darker than the card surface
   // (info.main) and in the same blue family, so it reads as a clean dark rule
   // rather than the off-hue, near-invisible grey it was before.
@@ -133,7 +129,6 @@ export function NightCard({ summary, conditions, window, location, date, moon }:
         height: 1,
         display: 'flex',
         flexDirection: 'column',
-        ...(heroBg ? { backgroundImage: heroBg } : null),
       }}
     >
       {/* Oversized glyph bleeding off the corner — pure decoration. */}

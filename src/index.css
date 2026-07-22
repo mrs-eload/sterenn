@@ -1,5 +1,57 @@
 /* Layout and theming are owned by MUI (CssBaseline + the dark theme in
-   src/theme.ts). This file stays intentionally minimal. */
+   src/theme.ts). This file stays intentionally minimal — plus the app's
+   typeface, declared as plain @font-face so Vite fingerprints the url()s and
+   the browser gets one block per weight/style (an emotion @font-face array
+   collapses into a single face, which made every weight resolve to italic). */
+
+/* Region Bretagne. Only the weights the theme uses (400/500/700 + italics);
+   weight 600 in typography.ts maps to 700 per the CSS font-matching rules. */
+@font-face {
+  font-family: 'Region Bretagne';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Regular.woff2') format('woff2'),
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Regular.woff') format('woff');
+}
+@font-face {
+  font-family: 'Region Bretagne';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Italic.woff2') format('woff2'),
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Italic.woff') format('woff');
+}
+@font-face {
+  font-family: 'Region Bretagne';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Medium.woff2') format('woff2'),
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Medium.woff') format('woff');
+}
+@font-face {
+  font-family: 'Region Bretagne';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Bold.woff2') format('woff2'),
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-Bold.woff') format('woff');
+}
+@font-face {
+  font-family: 'Region Bretagne';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-BoldItalic.woff2') format('woff2'),
+    url('./assets/fonts/Bretagne/WOFF-2/RegionBretagneNew-BoldItalic.woff') format('woff');
+}
+
 html,
 body,
 #root {

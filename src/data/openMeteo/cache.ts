@@ -66,7 +66,8 @@ export function forecastCacheKey(p: FetchForecastParams): string {
   const lon = p.lon.toFixed(2);
   const models = [...p.models].sort().join(',');
   const days = p.forecastDays ?? 2;
-  return `${KEY_PREFIX}${lat},${lon}|${models}|${days}`;
+  const past = p.pastDays ?? 0;
+  return `${KEY_PREFIX}${lat},${lon}|${models}|${days}|${past}`;
 }
 
 /** localStorage if usable, else a process-lifetime Map. Resolved once. */

@@ -59,6 +59,16 @@ export interface ObservingLocation {
  */
 export const FORECAST_DAYS = 8;
 
+/**
+ * How many past days to fetch alongside the forecast. Just before dawn we're
+ * still inside the night that began *last* evening; that night's dusk→midnight
+ * hours live on yesterday's date. Without this the forecast starts at 00:00
+ * today and the front of the in-progress night's window would be missing —
+ * dragging its verdict down with pessimistic missing-data defaults. One past day
+ * covers all of yesterday, which is as far back as any current night reaches.
+ */
+export const FORECAST_PAST_DAYS = 1;
+
 /** How many nights the day switcher lets you pick (tonight + the next six). */
 export const SELECTABLE_DAYS = 7;
 
@@ -173,7 +183,13 @@ export function useTonight(params: UseTonightParams = {}): UseTonightResult {
 
       try {
         const res = await fetchForecastCached(
-          { lat, lon, models, forecastDays: FORECAST_DAYS },
+          {
+            lat,
+            lon,
+            models,
+            forecastDays: FORECAST_DAYS,
+            pastDays: FORECAST_PAST_DAYS,
+          },
           controller.signal,
         );
         const perModel = adaptForecast(res, { requestedModels: models });

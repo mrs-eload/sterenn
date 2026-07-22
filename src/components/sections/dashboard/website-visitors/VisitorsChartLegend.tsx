@@ -39,13 +39,13 @@ const VisitorsChartLegend = ({ data, toggleColor, handleToggleLegend }: LegendPr
           <Typography
             variant="body1"
             color="text.secondary"
-            sx={{ fontFamily: fontFamily.workSans }}
+            sx={{ fontFamily: fontFamily.bretagne }}
           >
             {data.type}
           </Typography>
         </Stack>
       </ButtonBase>
-      <Typography variant="body1" color="text.primary" sx={{ fontFamily: fontFamily.workSans }}>
+      <Typography variant="body1" color="text.primary" sx={{ fontFamily: fontFamily.bretagne }}>
         {data.rate}
       </Typography>
     </Stack>

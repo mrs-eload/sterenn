@@ -24,7 +24,7 @@ const KPI = (props: KPIProps) => {
             <Typography
               variant="subtitle2"
               color="text.secondary"
-              sx={{ fontFamily: fontFamily.workSans }}
+              sx={{ fontFamily: fontFamily.bretagne }}
             >
               {title}
             </Typography>

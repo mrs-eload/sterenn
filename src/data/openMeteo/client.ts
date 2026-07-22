@@ -34,6 +34,13 @@ export interface FetchForecastParams {
   models: string[];
   /** Defaults to 2 — tonight + a margin for the night window crossing midnight. */
   forecastDays?: number;
+  /**
+   * How many past days to include. Defaults to 0. We ask for 1 in the app so the
+   * dusk→midnight hours of a night that began *yesterday* evening (i.e. the night
+   * still in progress after midnight) are present — the forecast otherwise starts
+   * at 00:00 today and would clip the front of that window.
+   */
+  pastDays?: number;
   /** Override base URL for testing. */
   baseUrl?: string;
 }
@@ -47,6 +54,9 @@ export function buildForecastUrl(p: FetchForecastParams): string {
   url.searchParams.set('hourly', HOURLY_VARS.join(','));
   url.searchParams.set('models', p.models.join(','));
   url.searchParams.set('forecast_days', String(p.forecastDays ?? 2));
+  if (p.pastDays) {
+    url.searchParams.set('past_days', String(p.pastDays));
+  }
   // Jet-stream wind feeds the seeing estimate; core works in m/s, so ask the
   // API for m/s rather than the default km/h and avoid a conversion downstream.
   url.searchParams.set('wind_speed_unit', 'ms');
