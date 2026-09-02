@@ -8,6 +8,7 @@ import { CameraController } from './camera/CameraController';
 import { addLabel } from './labels';
 import { drawnRadius, pixelFloorScale, worldPerPixelAtUnitDistance } from './sizing';
 import type { SizeModel } from './sizing';
+import type { FrameContext, SceneEntity } from './SceneEntity';
 import { KM_PER_AU, eclipticToWorld } from './frames';
 import { planetPosition, geoMoonPosition } from './ephemeris';
 import { PLANETS } from './bodies/planets.ts';
@@ -15,8 +16,7 @@ import { LAGRANGE_NAMES, sunEarthLagrangePoints } from './bodies/lagrange.ts';
 import type { LagrangeName } from './bodies/lagrange.ts';
 import { createEarth } from './bodies/earth.ts';
 import type { EarthHandle } from './bodies/earth.ts';
-import { createSun } from './bodies/sun.ts';
-import type { SunHandle } from './bodies/sun.ts';
+import { SunEntity } from './bodies/SunEntity';
 import { createMoon } from './bodies/moon.ts';
 import type { PlanetHandle as PlanetBodyHandle } from './bodies/planetBody.ts';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
@@ -66,9 +66,6 @@ interface TrajectoryHandle {
    */
   baseQuat: THREE.Quaternion;
 }
-
-// The Sun's true radius (695,700 km) in AU, so it's to scale like the planets.
-const SUN_RADIUS_AU = 695_700 / KM_PER_AU;
 
 // The Moon's true mean radius (km) and sidereal orbital period about Earth (days).
 const MOON_RADIUS_KM = 1737.4;
@@ -137,12 +134,18 @@ export class SolarSystemEngine {
   // The shared pick seam: bodies register into it, the camera reads from it.
   private readonly picks = new PickRegistry();
 
+  // The root of the body tree (see engine/README.md). Every entity's object3D is
+  // parented here; it sits at the world origin (the Sun), so children expressed in
+  // the heliocentric frame need no transform of their own.
+  private readonly solarSystem = new THREE.Group();
+  // Everything the engine advances each frame. The engine calls update(ctx) on
+  // each and knows nothing else about them — see SceneEntity / bodies/.
+  private readonly entities: SceneEntity[] = [];
+
   private readonly planets: PlanetHandle[] = [];
   // The realistic textured Earth, if built. Needs a per-frame update (spin +
   // day/night terminator) that the flat planets don't.
   private earth: EarthHandle | null = null;
-  // The animated shader Sun. Its surface churn advances every frame off real dt.
-  private sun: SunHandle | null = null;
   // The Moon (its own body file). Positioned each frame from its heliocentric
   // ephemeris, with a geocentric orbit ring that rides along with Earth.
   private moon: { handle: PlanetBodyHandle; baseRadius: number } | null = null;
@@ -208,6 +211,10 @@ export class SolarSystemEngine {
     this.scene.background = new THREE.Color(0x05070d);
     if (options.skyboxUrl) this.loadSkybox(options.skyboxUrl);
 
+    // The tree root, at the origin. Entities parent here; the Sun is the first.
+    this.solarSystem.name = 'SolarSystemGroup';
+    this.scene.add(this.solarSystem);
+
     // near/far are placeholders — updateAdaptiveClipping() rewrites them every
     // frame from the view distance, so we can fly from 60 AU down onto a
     // true-scale globe without a fixed near plane clipping it first.
@@ -236,7 +243,10 @@ export class SolarSystemEngine {
     this.scene.add(sunLight);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.04));
 
-    this.buildSun();
+    // The Sun is the first entity (see engine/README.md). Planets, the Moon and
+    // the annotations are still built the old flat way for now — later slices of
+    // the Body-tree refactor move each one into the entity list.
+    this.addEntity(new SunEntity(this.sizeModel, this.picks));
     this.buildPlanets();
     // After the planets, so the Moon's ring can anchor to the built Earth.
     this.buildMoon();
@@ -249,6 +259,22 @@ export class SolarSystemEngine {
   private track<T extends { dispose: () => void }>(resource: T): T {
     this.disposables.push(resource);
     return resource;
+  }
+
+  /** Parent an entity under the solar-system group and enlist it for per-frame updates. */
+  private addEntity(entity: SceneEntity): void {
+    this.solarSystem.add(entity.object3D);
+    this.entities.push(entity);
+  }
+
+  /** Bundle this frame's inputs for the entity update pass. */
+  private frameContext(dt: number): FrameContext {
+    return {
+      simTimeMs: this.simTimeMs,
+      dt,
+      camera: this.camera,
+      viewportHeight: this.renderer.domElement.clientHeight || 1,
+    };
   }
 
   /**
@@ -292,20 +318,6 @@ export class SolarSystemEngine {
     // The Sun is deliberately not floored — it keeps its true drawn size.
     for (const planet of this.planets) floorScale(planet.mesh, planet.baseRadius);
     if (this.moon) floorScale(this.moon.handle.object, this.moon.baseRadius);
-  }
-
-  private buildSun(): void {
-    // An animated fBm-noise surface with a fresnel corona (see sun.ts). Still
-    // unlit — the Sun is the light source, so its material ignores scene lights.
-    const sunRadius = drawnRadius(SUN_RADIUS_AU, this.sizeModel);
-    this.sun = this.track(createSun(sunRadius));
-    this.scene.add(this.sun.group);
-    addLabel(this.sun.group, 'Sun', '#ffcc66');
-    // Put the disc and its corona on the bloom layer so they (and only they)
-    // glow. enable() keeps layer 0 on, so they still render in the final scene.
-    this.sun.group.traverse((o) => o.layers.enable(BLOOM_LAYER));
-    // Pick against the lit disc, not the translucent corona shell; pivot on the group.
-    this.picks.addBody(this.sun.group, this.sun.core, sunRadius);
   }
 
   /**
@@ -741,6 +753,9 @@ export class SolarSystemEngine {
   /** Jump the simulation to a specific instant. */
   setDate(date: Date): void {
     this.simTimeMs = date.getTime();
+    // dt 0: scrubbing repositions everything but doesn't advance ambient animation.
+    const ctx = this.frameContext(0);
+    for (const entity of this.entities) entity.update(ctx);
     this.updatePlanetPositions();
     this.updateEarth();
     this.updateLagrangePositions();
@@ -778,8 +793,9 @@ export class SolarSystemEngine {
 
       // timeScale is simulated seconds per real second; dt is real seconds.
       this.simTimeMs += dt * this.timeScale * 1000;
-      // Surface churn runs on real elapsed time, independent of the sim clock.
-      this.sun?.update(dt);
+      // Advance every entity (currently just the Sun; more move here each slice).
+      const ctx = this.frameContext(dt);
+      for (const entity of this.entities) entity.update(ctx);
       this.updatePlanetPositions();
       this.updateEarth();
       this.updateLagrangePositions();
@@ -824,6 +840,8 @@ export class SolarSystemEngine {
     this.cameraController.dispose();
     // The pipeline owns its composers/render targets and the dark material.
     this.pipeline.dispose();
+    // Entities own their own GPU resources (they aren't in `disposables`).
+    for (const entity of this.entities) entity.dispose();
     for (const resource of this.disposables) resource.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {
