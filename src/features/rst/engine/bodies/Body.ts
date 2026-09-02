@@ -73,6 +73,10 @@ export class Body implements SceneEntity {
   private readonly orbitTrail: OrbitTrail | null;
   private readonly minPixelRadius: number;
   private readonly children: Body[];
+  // Annotations tied to this body but attached after construction (e.g. the
+  // Lagrange group on Earth). They live under the SystemGroup, in the parent
+  // frame, and are advanced with the body.
+  private readonly attachments: SceneEntity[] = [];
 
   constructor(options: BodyOptions) {
     this.visual = options.visual;
@@ -110,6 +114,17 @@ export class Body implements SceneEntity {
     );
   }
 
+  /**
+   * Attach an annotation entity (e.g. a LagrangeGroup) to this body. It lives
+   * under the SystemGroup — the parent frame — and is advanced and disposed with
+   * the body. This is how "the decision to add Lagrange points belongs to the
+   * body" is realised without the engine knowing what a Lagrange point is.
+   */
+  attach(entity: SceneEntity): void {
+    this.object3D.add(entity.object3D);
+    this.attachments.push(entity);
+  }
+
   update(ctx: FrameContext): void {
     const [x, y, z] = this.positionInParentFrame(ctx.simTimeMs);
     this.placement.position.set(x, y, z);
@@ -122,6 +137,7 @@ export class Body implements SceneEntity {
     }
     this.applyFloor(ctx);
     this.orbitTrail?.update(ctx);
+    for (const attachment of this.attachments) attachment.update(ctx);
     // Children after this body is placed, so their world transform is current.
     for (const child of this.children) child.update(ctx);
   }
@@ -139,6 +155,7 @@ export class Body implements SceneEntity {
   dispose(): void {
     this.visual.dispose();
     this.orbitTrail?.dispose();
+    for (const attachment of this.attachments) attachment.dispose();
     for (const child of this.children) child.dispose();
   }
 }

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import { Body } from 'astronomy-engine';
 import { BloomPipeline } from './render/BloomPipeline';
 import { loadSkyboxTexture } from './render/skybox';
 import { PickRegistry } from './camera/PickRegistry';
@@ -9,11 +8,11 @@ import { addLabel } from './labels';
 import type { SizeModel } from './sizing';
 import type { FrameContext, SceneEntity } from './SceneEntity';
 import { eclipticToWorld } from './frames';
-import { planetPosition } from './ephemeris';
-import { LAGRANGE_NAMES, sunEarthLagrangePoints } from './bodies/lagrange.ts';
-import type { LagrangeName } from './bodies/lagrange.ts';
 import { SunEntity } from './bodies/SunEntity';
 import { createPlanetBodies } from './bodies/solarSystem';
+import type { Body } from './bodies/Body';
+import { LagrangeGroup } from './bodies/LagrangeGroup';
+import type { LagrangeConfig } from './bodies/LagrangeGroup';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
 import { Object3D } from "three";
 
@@ -76,7 +75,8 @@ export class SolarSystemEngine {
   private readonly entities: SceneEntity[] = [];
 
   private readonly trajectories: TrajectoryHandle[] = [];
-  private readonly lagrangeMarkers: Array<{ name: LagrangeName; mesh: THREE.Mesh }> = [];
+  // The Earth body, kept so annotations (Lagrange points) can attach to it.
+  private readonly earthBody: Body;
   // Geometries/materials we create and must dispose to free GPU memory.
   private readonly disposables: Array<{ dispose: () => void }> = [];
 
@@ -167,14 +167,14 @@ export class SolarSystemEngine {
     // entity. Annotations (Lagrange, trajectory objects) are still added the old
     // flat way; later slices move them too.
     this.addEntity(new SunEntity(this.sizeModel, this.picks));
-    for (const body of createPlanetBodies({
+    const { bodies, earth } = createPlanetBodies({
       sizeModel: this.sizeModel,
       minPixelRadius: this.minPixelRadius,
       startTimeMs: this.simTimeMs,
       picks: this.picks,
-    })) {
-      this.addEntity(body);
-    }
+    });
+    this.earthBody = earth;
+    for (const body of bodies) this.addEntity(body);
     // Position every body and fill its orbit trail before the first render.
     const initCtx = this.frameContext(0);
     for (const entity of this.entities) entity.update(initCtx);
@@ -349,54 +349,26 @@ export class SolarSystemEngine {
   }
 
   /**
-   * Drop point markers at the Sun–Earth Lagrange points. They look like fixed
-   * dots but are recomputed from Earth's live position every frame, since the
-   * points co-rotate with Earth (see lagrange.ts). Pass `names` to show a
-   * subset — e.g. just L2 (where RST lives) and L3.
+   * Show the Sun–Earth Lagrange points as an annotation on the Earth body. They
+   * look like fixed dots but are recomputed from Earth's live position every
+   * frame, since the points co-rotate with Earth (see lagrange.ts). Pass `names`
+   * to show a subset — e.g. just L2 (where RST lives) and L3. The group is owned
+   * by the Earth body, so it moves, updates and disposes with it.
    */
-  addLagrangePoints(config: {
-    names?: LagrangeName[];
-    color?: number;
-    radius?: number;
-    labels?: boolean;
-  } = {}): void {
-    const names = config.names ?? LAGRANGE_NAMES;
-    const radius = config.radius ?? 0.005;
-    const color = config.color ?? 0xff5599;
-    const cssColor = '#' + color.toString(16).padStart(6, '0');
-    for (const name of names) {
-      const geometry = this.track(new THREE.SphereGeometry(radius, 12, 12));
-      // Unlit so a marker reads as an annotation, not a lit body.
-      const material = this.track(new THREE.MeshBasicMaterial({ color }));
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.scale.set(0.01,0.01,0.01)
-      mesh.name = name;
-      this.scene.add(mesh);
-      this.picks.addPickable(mesh);
-      this.lagrangeMarkers.push({ name, mesh });
-      if (config.labels) addLabel(mesh, name, cssColor);
-    }
-    this.updateLagrangePositions();
-  }
-
-  /** Re-place the Lagrange markers from Earth's position at the current time. */
-  private updateLagrangePositions(): void {
-    if (this.lagrangeMarkers.length === 0) return;
-    const earth = planetPosition(Body.Earth, new Date(this.simTimeMs));
-    const points = sunEarthLagrangePoints(earth);
-    for (const { name, mesh } of this.lagrangeMarkers) {
-      const [x, y, z] = eclipticToWorld(points[name]);
-      mesh.position.set(x, y, z);
-    }
+  addLagrangePoints(config: LagrangeConfig = {}): void {
+    const group = new LagrangeGroup(config, this.picks);
+    this.earthBody.attach(group);
+    // Position the markers now so they're correct before the first frame.
+    group.update(this.frameContext(0));
   }
 
   /** Jump the simulation to a specific instant. */
   setDate(date: Date): void {
     this.simTimeMs = date.getTime();
-    // dt 0: scrubbing repositions every body but doesn't advance ambient animation.
+    // dt 0: scrubbing repositions every body (and its Lagrange attachment) but
+    // doesn't advance ambient animation.
     const ctx = this.frameContext(0);
     for (const entity of this.entities) entity.update(ctx);
-    this.updateLagrangePositions();
     for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
   }
 
@@ -431,11 +403,10 @@ export class SolarSystemEngine {
 
       // timeScale is simulated seconds per real second; dt is real seconds.
       this.simTimeMs += dt * this.timeScale * 1000;
-      // Advance every body (Sun, planets, Moon) — each positions, spins, floors
-      // and refills its own trail. Annotations are still updated below.
+      // Advance every body (Sun, planets, Moon) — each positions, spins, floors,
+      // refills its trail and updates its attachments (Earth's Lagrange group).
       const ctx = this.frameContext(dt);
       for (const entity of this.entities) entity.update(ctx);
-      this.updateLagrangePositions();
       for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
 
       // Drive the camera: follow any focused body, settle the controls, retune

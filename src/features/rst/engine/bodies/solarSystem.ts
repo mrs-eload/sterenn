@@ -95,18 +95,27 @@ function createMoonBody(deps: SolarSystemDeps): Body {
   });
 }
 
+export interface SolarSystemBodies {
+  /** All eight planets, ready to add to the scene as entities. */
+  bodies: Body[];
+  /** The Earth body, exposed so callers can attach annotations (Lagrange) to it. */
+  earth: Body;
+}
+
 /**
  * Build the eight planets as tree bodies — Earth carrying the Moon as a child.
  * Each planet is heliocentric with a dotted orbit trail; the per-body visual
  * (Earth's shader, a textured sphere, or the flat fallback) is chosen here, in
  * the bodies layer, so the engine never branches on body type.
  */
-export function createPlanetBodies(deps: SolarSystemDeps): Body[] {
-  return PLANETS.map((cfg) => {
+export function createPlanetBodies(deps: SolarSystemDeps): SolarSystemBodies {
+  let earth: Body | undefined;
+  const bodies = PLANETS.map((cfg) => {
     const baseRadius = drawnRadius(cfg.radiusAu, deps.sizeModel);
     let visual: BodyVisual;
     let children: Body[] | undefined;
-    if (cfg.body === AstroBody.Earth) {
+    const isEarth = cfg.body === AstroBody.Earth;
+    if (isEarth) {
       visual = earthVisual(createEarth(baseRadius), baseRadius);
       children = [createMoonBody(deps)];
     } else if (cfg.create) {
@@ -114,7 +123,7 @@ export function createPlanetBodies(deps: SolarSystemDeps): Body[] {
     } else {
       visual = sphereVisual(baseRadius, cfg.color);
     }
-    return new Body({
+    const body = new Body({
       name: cfg.label,
       label: cfg.label,
       labelColor: '#' + cfg.color.toString(16).padStart(6, '0'),
@@ -130,5 +139,9 @@ export function createPlanetBodies(deps: SolarSystemDeps): Body[] {
       picks: deps.picks,
       children,
     });
+    if (isEarth) earth = body;
+    return body;
   });
+  // Earth is always present in PLANETS, so this is defined.
+  return { bodies, earth: earth! };
 }
