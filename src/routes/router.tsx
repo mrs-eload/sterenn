@@ -10,6 +10,8 @@ const Home = lazy(() => import('@app/pages/Home'));
 const Dashboard = lazy(() => import('@app/pages/Dashboard'));
 const Equipment = lazy(() => import('@app/pages/Equipment'));
 const Targets = lazy(() => import('@app/pages/Targets'));
+// Temporary subject (RST). Delete this line and its route child to retire it.
+const Rst = lazy(() => import('@app/pages/Rst'));
 
 const router = createBrowserRouter(
   [
@@ -45,6 +47,11 @@ const router = createBrowserRouter(
             {
               path: 'targets',
               element: <Targets />,
+            },
+            {
+              // Temporary subject (RST) — remove this child when retiring it.
+              path: 'rst',
+              element: <Rst />,
             },
           ],
         },

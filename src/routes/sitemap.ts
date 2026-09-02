@@ -47,6 +47,14 @@ const navItems: NavItem[] = [
     path: paths.targets,
     icon: 'mingcute:star-line',
   },
+  // Temporary subject — Roman Space Telescope (RST) tracking. Delete this entry
+  // to drop it from the nav when the subject is retired.
+  {
+    id: 'rst',
+    title: 'RST',
+    path: paths.rst,
+    icon: 'mingcute:rocket-line',
+  },
 ];
 
 export default navItems;

@@ -93,6 +93,7 @@ npm run build        # tsc -b && vite build (also a typecheck gate)
 - Config objects with sane defaults over long positional arg lists (see
   `AnalyzeConfig`).
 - Don't reformat code you're not changing. Keep diffs tight and reviewable.
+- Don't type check or build or launch dev server, I'll tell you if there is an issue.
 
 ## Domain gotchas (will bite you if you don't know them)
 

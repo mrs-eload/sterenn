@@ -11,6 +11,9 @@ export default {
   weather: '/weather',
   equipment: '/equipment',
   targets: '/targets',
+  // Temporary subject — tracking the Nancy Grace Roman Space Telescope (RST).
+  // Self-contained under features/rst; remove this line when the subject is retired.
+  rst: '/rst',
 
   signin: `/${rootPaths.authRoot}/signin`,
   signup: `/${rootPaths.authRoot}/sign-up`,

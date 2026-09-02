@@ -1,0 +1,330 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Button, IconButton, Paper, Slider, Tooltip } from '@mui/material';
+import { Icon } from '@iconify/react';
+import type { FullHorizonsPayload } from '@app/features/rst/data/horizon-parser.ts';
+import { SolarSystemEngine, kmToAu } from '@app/features/rst/engine';
+import type { TrajectoryPoint } from '@app/features/rst/engine';
+import { DateTimeSpinner } from './DateTimeSpinner';
+import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+
+interface SolarSystemMapProps {
+  horizonsData: FullHorizonsPayload;
+}
+
+// The speed slider is a signed, continuous "shuttle": position 0 is the centre
+// (real time), the right half accelerates forward, the left half runs backward,
+// and both halves speed up exponentially toward the edges. `rate` throughout is
+// simulated seconds per real second; play/pause is separate (pause = rate 0).
+const DAY = 86_400;
+const YEAR = 365.25 * DAY;
+
+// Slider position runs -1..+1. The magnitude at |pos| grows exponentially from
+// 1× at the centre to MAX_RATE at the edge, so every decade of speed gets equal
+// travel — the natural feel for a time shuttle spanning seconds to years.
+const MAX_RATE = 10 * YEAR; // 10 years per second at full deflection
+const LN_MAX = Math.log(MAX_RATE);
+
+// A small dead zone around the centre snaps back to exactly real time, so the
+// user can flick the thumb to the middle to "go back to real time" without
+// having to land on a single pixel.
+const CENTRE_DEADZONE = 0.02;
+
+/** Signed clock rate (sim s / real s) for a slider position in -1..+1. */
+function rateFromPos(pos: number): number {
+  if (Math.abs(pos) < CENTRE_DEADZONE) return 1; // centre = real time, forward
+  const magnitude = Math.exp(Math.abs(pos) * LN_MAX);
+  return pos < 0 ? -magnitude : magnitude;
+}
+
+/** Slider position for a given speed magnitude (used to place the indicators). */
+function posForRate(magnitude: number): number {
+  return Math.log(magnitude) / LN_MAX;
+}
+
+// Reference speeds, shown as (non-snapping) tick marks either side of centre so
+// the user can gauge how fast they're scrubbing. They are indicators only — the
+// thumb moves freely between them.
+const SPEED_INDICATORS = [
+  { magnitude: DAY, label: '1 d/s' },
+  { magnitude: 30 * DAY, label: '30 d/s' },
+  { magnitude: YEAR, label: '1 y/s' },
+  { magnitude: MAX_RATE, label: '10 y/s' },
+];
+const SPEED_MARKS = [
+  { value: 0, label: 'Real time' },
+  ...SPEED_INDICATORS.flatMap(({ magnitude, label }) => {
+    const pos = posForRate(magnitude);
+    return [
+      { value: pos, label },
+      { value: -pos, label: `−${label}` },
+    ];
+  }),
+];
+
+/** Human-readable current speed, e.g. "12 d/s", "−1.4 y/s", "Real time". */
+function formatSpeed(pos: number, playing: boolean): string {
+  if (!playing) return 'Paused';
+  if (Math.abs(pos) < CENTRE_DEADZONE) return 'Real time';
+  const rate = rateFromPos(pos);
+  const mag = Math.abs(rate);
+  const sign = rate < 0 ? '−' : '';
+  const [value, unit] =
+    mag < DAY ? [mag / 3600, 'h/s'] : mag < YEAR ? [mag / DAY, 'd/s'] : [mag / YEAR, 'y/s'];
+  const decimals = value < 10 ? 1 : 0;
+  return `${sign}${value.toFixed(decimals)} ${unit}`;
+}
+
+/**
+ * Turn a Horizons vector table into engine trajectory points. The RST file is
+ * heliocentric, ecliptic-of-J2000, in km — the engine's native frame — so we
+ * only convert km→AU and parse the (already ISO) timestamp to epoch ms.
+ */
+function toTrajectoryPoints(data: FullHorizonsPayload): TrajectoryPoint[] {
+  return data.trajectory.map((pt) => ({
+    timeMs: Date.parse(pt.utcDate),
+    position: kmToAu(pt.positionKm),
+  }));
+}
+
+export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ horizonsData }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<SolarSystemEngine | null>(null);
+  const teardownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Freeze the live clock readout while the user edits the date. A counter, so
+  // overlapping sources (hovering the spinner, an open calendar) stay balanced.
+  const editingDepth = useRef(0);
+
+  const [playing, setPlaying] = useState(true);
+  // Signed slider position in -1..+1: 0 is real time, right is forward, left is
+  // backward. This alone encodes speed *and* direction now.
+  const [speedPos, setSpeedPos] = useState(0);
+  const [simDate, setSimDate] = useState<Date | null>(null);
+
+  useEffect( () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Build the engine once and reuse it across React StrictMode's synchronous
+    // unmount/remount (dev), deferring teardown so the remount reclaims it.
+    if (!engineRef.current) {
+      const points = toTrajectoryPoints(horizonsData);
+      const engine = new SolarSystemEngine(container, {
+        // Start at real "now" so the clock reads true UTC and the spacecraft
+        // sits at its present position along the trajectory.
+        startDate: new Date(),
+        timeScale: rateFromPos(0),
+        // Centre on the Sun: it's the heliocentric anchor, so rotating from the
+        // default view is a turntable around the Sun rather than around an
+        // invisible near-Earth point (which read as "orbiting empty space").
+        focus: { x: 0, y: 0, z: 0 },
+        viewDistance: 2.5,
+        // True physical sizes, kept visible by a screen-space floor: from afar
+        // every body holds a few pixels (never the sub-pixel dots true scale
+        // would otherwise give); fly in and it relaxes to honest proportions.
+        // This also fixes L2 for free — L2 sits ~0.01003 AU from Earth, and
+        // Earth's true radius is ~4.3e-5 AU, so the marker is far outside the
+        // globe at any zoom where you can actually resolve it.
+        trueScale: true,
+        minPixelRadius: 3.5,
+        skyboxUrl: '/sterenn/textures/skybox/skybox.jpg',
+      });
+
+      // Sun–Earth Lagrange points. L2 is where RST sits; L3 is on the far side
+      // of the Sun. They track Earth each frame, so they stay correct as you
+      // scrub the clock.
+      // Marker radius 0.002 AU (not 0.005): the dot is ~0.01 AU off Earth, so a
+      // fat marker would still overlap the globe. This keeps its near edge
+      // (~0.008 AU) clear of Earth's ~0.0065 AU surface.
+      engine.addLagrangePoints({ names: ['L2', 'L3'], radius: 0.002, labels: true });
+
+      const loader = new GLTFLoader();
+      const dracoLoader = new DRACOLoader();
+      loader.setDRACOLoader( dracoLoader );
+      loader.load("/sterenn/horizons/rst/model/RST_v4.glb", (glb: GLTF)=> {
+        let rst_spaceraft = glb.scene.clone();
+        console.log(rst_spaceraft)
+        rst_spaceraft?.scale.set(.000001,.000001,.000001)
+        // Base rotation is now a calibration offset, not the final attitude: the
+        // engine aims the nose down the trajectory (+Z = direction of travel) and
+        // composes this on top. Trim these angles until the nose points along
+        // the path (and the model rolls the way you want).
+        rst_spaceraft?.rotation.set(0,-1.6 + Math.PI,0)
+        engine.addTrajectoryObject({
+          id: 'rst',
+          color: 0x00ffcc,
+          radius: 0.03,
+          points,
+          object: rst_spaceraft,
+          orientToTrajectory: true,
+          label: 'RST',
+        });
+
+        setSimDate(engine.getDate());
+      });
+      engine.start();
+      engineRef.current = engine;
+    }
+    if (teardownTimer.current) {
+      clearTimeout(teardownTimer.current);
+      teardownTimer.current = null;
+    }
+
+    // Poll the simulation clock for the readout (~5 Hz shows seconds ticking).
+    const clock = window.setInterval(() => {
+      const engine = engineRef.current;
+      if (engine && editingDepth.current === 0) setSimDate(engine.getDate());
+    }, 200);
+
+    return () => {
+      window.clearInterval(clock);
+      teardownTimer.current = setTimeout(() => {
+        engineRef.current?.dispose();
+        engineRef.current = null;
+        teardownTimer.current = null;
+      }, 0);
+    };
+  }, [horizonsData]);
+
+  const applyRate = (nextPlaying: boolean, nextPos: number): void => {
+    engineRef.current?.setTimeScale(nextPlaying ? rateFromPos(nextPos) : 0);
+  };
+
+  const handlePlayPause = (): void => {
+    const next = !playing;
+    setPlaying(next);
+    applyRate(next, speedPos);
+  };
+
+  const handleSpeed = (_event: Event, value: number | number[]): void => {
+    const raw = Array.isArray(value) ? value[0] : value;
+    // Snap the centre dead zone to exactly 0 so real time is easy to land on.
+    const pos = Math.abs(raw) < CENTRE_DEADZONE ? 0 : raw;
+    setSpeedPos(pos);
+    // Grabbing the shuttle implies you want it running.
+    setPlaying(true);
+    applyRate(true, pos);
+  };
+
+  const handleDateChange = (date: Date): void => {
+    engineRef.current?.setDate(date);
+    setSimDate(date);
+  };
+
+  const handleNow = (): void => handleDateChange(new Date());
+  const handleRecenter = (): void => engineRef.current?.recenter();
+
+  const startEditing = (): void => {
+    editingDepth.current += 1;
+  };
+  const stopEditing = (): void => {
+    editingDepth.current = Math.max(0, editingDepth.current - 1);
+  };
+
+  const buttonSx = { color: '#e6edf3', borderColor: 'rgba(255, 255, 255, 0.25)' };
+
+  return (
+    <Box sx={{ position: 'relative', width: '100%', height: '1040px' }}>
+      <div
+        ref={containerRef}
+        style={{ position: 'absolute', inset: 0, backgroundColor: '#05070d' }}
+      />
+
+      {/* Top-left: the date/time HUD. */}
+      <Box sx={{ position: 'absolute', top: 16, left: 16, zIndex: 2 }}>
+        {simDate && (
+          <DateTimeSpinner
+            value={simDate}
+            onChange={handleDateChange}
+            onInteractStart={startEditing}
+            onInteractEnd={stopEditing}
+          />
+        )}
+      </Box>
+
+      {/* Bottom: time transport. */}
+      <Paper
+        elevation={6}
+        sx={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 16,
+          px: 2,
+          py: 1.25,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          flexWrap: 'wrap',
+          bgcolor: 'rgba(10, 14, 22, 0.82)',
+          color: '#e6edf3',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+        }}
+      >
+        <Tooltip title={playing ? 'Pause' : 'Play'}>
+          <IconButton onClick={handlePlayPause} sx={{ color: '#00ffcc' }}>
+            <Icon icon={playing ? 'mdi:pause' : 'mdi:play'} width={28} />
+          </IconButton>
+        </Tooltip>
+
+        <Tooltip title="Back to real time">
+          <span>
+            <IconButton
+              onClick={() => handleSpeed(new Event('reset'), 0)}
+              disabled={speedPos === 0 && playing}
+              sx={{ color: speedPos === 0 ? '#9fb0c3' : '#00ffcc' }}
+            >
+              <Icon icon="mdi:target" />
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Box sx={{ flex: 1, minWidth: 320, px: 2 }}>
+          <Slider
+            size="small"
+            min={-1}
+            max={1}
+            step={0.001}
+            marks={SPEED_MARKS}
+            track={false}
+            value={speedPos}
+            onChange={handleSpeed}
+            aria-label="Time speed"
+            sx={{
+              color: '#00ffcc',
+              // Emphasise the centre tick — it's the "real time" home position.
+              '& .MuiSlider-markLabel': { color: '#9fb0c3', fontSize: 11 },
+              '& .MuiSlider-mark': { backgroundColor: 'rgba(255,255,255,0.35)' },
+              '& .MuiSlider-mark[data-index="0"]': {
+                height: 12,
+                width: 2,
+                backgroundColor: 'rgba(255,255,255,0.7)',
+              },
+            }}
+          />
+        </Box>
+
+        <Box
+          sx={{
+            minWidth: 84,
+            textAlign: 'center',
+            fontSize: 13,
+            fontVariantNumeric: 'tabular-nums',
+            color: playing ? '#00ffcc' : '#9fb0c3',
+          }}
+        >
+          {formatSpeed(speedPos, playing)}
+        </Box>
+
+        <Button variant="outlined" size="small" onClick={handleNow} sx={buttonSx}>
+          Now
+        </Button>
+        <Button variant="outlined" size="small" onClick={handleRecenter} sx={buttonSx}>
+          Recenter
+        </Button>
+      </Paper>
+    </Box>
+  );
+};
