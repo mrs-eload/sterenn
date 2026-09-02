@@ -201,8 +201,6 @@ export class SolarSystemEngine {
   private readonly sizeModel: SizeModel;
   // The screen-space visibility floor (see EngineOptions and applyBodyScales).
   private readonly minPixelRadius: number;
-  // The Sun's base drawn radius, kept for the same per-frame rescale as the planets.
-  private sunBaseRadius = 0;
   // Root object of each pickable body → its true radius (AU). Lets a raycast hit
   // (often a child mesh) resolve to the body's centre and size, so we orbit the
   // planet's centre and stop the zoom just outside its real surface.
@@ -566,7 +564,7 @@ export class SolarSystemEngine {
       mesh.scale.setScalar(pixelFloorScale(baseRadius, dist, worldPerPixelPerDist, this.minPixelRadius));
     };
 
-    // if (this.sun) floorScale(this.sun.group, this.sunBaseRadius);
+    // The Sun is deliberately not floored — it keeps its true drawn size.
     for (const planet of this.planets) floorScale(planet.mesh, planet.baseRadius);
     if (this.moon) floorScale(this.moon.handle.object, this.moon.baseRadius);
   }
@@ -595,10 +593,10 @@ export class SolarSystemEngine {
   private buildSun(): void {
     // An animated fBm-noise surface with a fresnel corona (see sun.ts). Still
     // unlit — the Sun is the light source, so its material ignores scene lights.
-    this.sunBaseRadius = drawnRadius(SUN_RADIUS_AU, this.sizeModel);
-    this.sun = this.track(createSun(this.sunBaseRadius));
+    const sunRadius = drawnRadius(SUN_RADIUS_AU, this.sizeModel);
+    this.sun = this.track(createSun(sunRadius));
     this.scene.add(this.sun.group);
-    this.bodyRadii.set(this.sun.group, this.sunBaseRadius);
+    this.bodyRadii.set(this.sun.group, sunRadius);
     addLabel(this.sun.group, 'Sun', '#ffcc66');
     // Put the disc and its corona on the bloom layer so they (and only they)
     // glow. enable() keeps layer 0 on, so they still render in the final scene.
