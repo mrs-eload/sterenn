@@ -1,57 +1,25 @@
 import * as THREE from 'three';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Body } from 'astronomy-engine';
-import { BloomPipeline, BLOOM_LAYER } from './render/BloomPipeline';
+import { BloomPipeline } from './render/BloomPipeline';
 import { loadSkyboxTexture } from './render/skybox';
 import { PickRegistry } from './camera/PickRegistry';
 import { CameraController } from './camera/CameraController';
 import { addLabel } from './labels';
-import { drawnRadius, pixelFloorScale, worldPerPixelAtUnitDistance } from './sizing';
 import type { SizeModel } from './sizing';
 import type { FrameContext, SceneEntity } from './SceneEntity';
-import { KM_PER_AU, eclipticToWorld } from './frames';
-import { planetPosition, geoMoonPosition } from './ephemeris';
-import { PLANETS } from './bodies/planets.ts';
+import { eclipticToWorld } from './frames';
+import { planetPosition } from './ephemeris';
 import { LAGRANGE_NAMES, sunEarthLagrangePoints } from './bodies/lagrange.ts';
 import type { LagrangeName } from './bodies/lagrange.ts';
-import { createEarth } from './bodies/earth.ts';
-import type { EarthHandle } from './bodies/earth.ts';
 import { SunEntity } from './bodies/SunEntity';
-import { createMoon } from './bodies/moon.ts';
-import type { PlanetHandle as PlanetBodyHandle } from './bodies/planetBody.ts';
+import { createPlanetBodies } from './bodies/solarSystem';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
 import { Object3D } from "three";
-
-interface PlanetHandle {
-  body: Body;
-  // An Object3D, not strictly a Mesh: Earth is a group (globe + clouds).
-  mesh: THREE.Object3D;
-  // The world radius the mesh geometry was built at. The pixel floor scales the
-  // mesh relative to this, so a scale of 1 always means "true drawn size".
-  baseRadius: number;
-}
 
 interface WorldPoint {
   t: number;
   pos: [number, number, number];
-}
-
-/**
- * A planet's dotted orbit trail. `samples` is the precomputed fine orbit (K×3
- * world coords, equal steps in time over one period); `positions` is the small
- * per-frame buffer the Points geometry draws, refilled from `samples` at a
- * variable density anchored to the planet's current phase (see updateOrbitTrails).
- */
-interface OrbitTrail {
-  geometry: THREE.BufferGeometry;
-  positions: Float32Array;
-  samples: Float32Array;
-  periodMs: number;
-  t0Ms: number;
-  // If set, `samples` are offsets FROM this body (e.g. the Moon's ring is
-  // geocentric): each frame the anchor's live world position is added back in, so
-  // the ring rides along with it. Absent for heliocentric orbits (planets).
-  anchor?: THREE.Object3D;
 }
 
 interface TrajectoryHandle {
@@ -67,48 +35,13 @@ interface TrajectoryHandle {
   baseQuat: THREE.Quaternion;
 }
 
-// The Moon's true mean radius (km) and sidereal orbital period about Earth (days).
-const MOON_RADIUS_KM = 1737.4;
-const MOON_SIDEREAL_DAYS = 27.321661;
-
-const DAY_MS = 86_400_000;
-
-// Orbit trails are drawn as dotted comet-tails, dense at the planet's live
-// position and spreading out along the path it has already travelled. Each orbit
-// is precomputed once as this many equal-time position samples over one period;
-// every frame we read a variable-density subset from the table (no re-computing).
-const ORBIT_SAMPLE_COUNT = 600;
-// Cap on dots per orbit; the geometric spacing below usually settles well under it.
-const ORBIT_DOT_COUNT = 260;
-
-/**
- * Fraction-of-period offsets, one per orbit dot, measured *backward in time* from
- * the body's current position. The gaps grow geometrically, so dots crowd at the
- * body (the recent path) and spread out along the older trail behind it. We stop
- * short of a full period so the sparse tail never wraps back onto the dense head.
- */
-function buildOrbitDotOffsets(): number[] {
-  const offsets: number[] = [];
-  let cursor = 0;
-  let gap = 0.0002; // first gap: ~1.75 h for Earth, so the head reads solid
-  const growth = 1.03; // gentle growth keeps the whole ring densely populated
-  for (let i = 0; i < ORBIT_DOT_COUNT && cursor < 0.985; i += 1) {
-    offsets.push(cursor);
-    cursor += gap;
-    gap *= growth;
-  }
-  return offsets;
-}
-const ORBIT_DOT_OFFSETS = buildOrbitDotOffsets();
-
 // Frame-local scratch, reused to avoid per-frame allocation in the render loop.
+// (Trajectory-orientation maths; body positioning/trails/floor moved to bodies/.)
 const _dir = new THREE.Vector3();
 const _origin = new THREE.Vector3(0, 0, 0);
 const _worldUp = new THREE.Vector3(0, 1, 0); // ecliptic north in world space
 const _lookMatrix = new THREE.Matrix4();
 const _alignQuat = new THREE.Quaternion();
-const _bodyWorld = new THREE.Vector3(); // a body's world position, for the pixel floor
-const _anchorWorld = new THREE.Vector3(); // a trail anchor's world position (e.g. Earth, for the Moon ring)
 
 /**
  * A self-contained heliocentric solar-system renderer built directly on
@@ -142,28 +75,14 @@ export class SolarSystemEngine {
   // each and knows nothing else about them — see SceneEntity / bodies/.
   private readonly entities: SceneEntity[] = [];
 
-  private readonly planets: PlanetHandle[] = [];
-  // The realistic textured Earth, if built. Needs a per-frame update (spin +
-  // day/night terminator) that the flat planets don't.
-  private earth: EarthHandle | null = null;
-  // The Moon (its own body file). Positioned each frame from its heliocentric
-  // ephemeris, with a geocentric orbit ring that rides along with Earth.
-  private moon: { handle: PlanetBodyHandle; baseRadius: number } | null = null;
-  // Textured planets (all but Earth) that need a per-frame spin. See planetBody.ts.
-  private readonly planetBodies: PlanetBodyHandle[] = [];
   private readonly trajectories: TrajectoryHandle[] = [];
-  // One dotted comet-tail per planet orbit, refilled each frame from its table.
-  private readonly orbitTrails: OrbitTrail[] = [];
   private readonly lagrangeMarkers: Array<{ name: LagrangeName; mesh: THREE.Mesh }> = [];
   // Geometries/materials we create and must dispose to free GPU memory.
   private readonly disposables: Array<{ dispose: () => void }> = [];
-  // A soft round dot sprite, built once and shared by every orbit's Points
-  // material so the paths read as dotted rings rather than solid lines.
-  private dotTexture: THREE.CanvasTexture | null = null;
 
   // Body sizing: true-scale vs. the compressed power-law (see sizing.ts + options).
   private readonly sizeModel: SizeModel;
-  // The screen-space visibility floor (see EngineOptions and applyBodyScales).
+  // The screen-space visibility floor in px, passed to each body (0 = no floor).
   private readonly minPixelRadius: number;
 
   // Selective-bloom post-processing (only the Sun and orbit dots glow). Owns the
@@ -243,13 +162,23 @@ export class SolarSystemEngine {
     this.scene.add(sunLight);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.04));
 
-    // The Sun is the first entity (see engine/README.md). Planets, the Moon and
-    // the annotations are still built the old flat way for now — later slices of
-    // the Body-tree refactor move each one into the entity list.
+    // The body tree: the Sun at the origin, then the eight planets (Earth
+    // carrying the Moon as a child) — each a self-positioning, self-updating
+    // entity. Annotations (Lagrange, trajectory objects) are still added the old
+    // flat way; later slices move them too.
     this.addEntity(new SunEntity(this.sizeModel, this.picks));
-    this.buildPlanets();
-    // After the planets, so the Moon's ring can anchor to the built Earth.
-    this.buildMoon();
+    for (const body of createPlanetBodies({
+      sizeModel: this.sizeModel,
+      minPixelRadius: this.minPixelRadius,
+      startTimeMs: this.simTimeMs,
+      picks: this.picks,
+    })) {
+      this.addEntity(body);
+    }
+    // Position every body and fill its orbit trail before the first render.
+    const initCtx = this.frameContext(0);
+    for (const entity of this.entities) entity.update(initCtx);
+
     this.pipeline = new BloomPipeline(this.renderer, this.scene, this.camera, width, height);
 
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
@@ -293,295 +222,6 @@ export class SolarSystemEngine {
       this.scene.background = texture;
       this.disposables.push(texture);
     });
-  }
-
-  /**
-   * Hold every body to a minimum apparent size (see sizing.ts for the maths).
-   * A body scales *up* as you retreat so it never drops below the floor, then
-   * relaxes to its true size the moment it's close enough to clear the floor on
-   * its own — far away a guaranteed dot, up close honest proportions. The scale
-   * is uniform, so textures, tilt, rings and Earth's atmosphere shell keep their
-   * shape. Annotation markers (Lagrange, trajectory objects) are deliberately
-   * excluded — their sizes are the caller's to choose.
-   */
-  private applyBodyScales(): void {
-    if (this.minPixelRadius <= 0) return;
-    const height = this.renderer.domElement.clientHeight || 1;
-    const worldPerPixelPerDist = worldPerPixelAtUnitDistance(this.camera.fov, height);
-    const cam = this.camera.position;
-
-    const floorScale = (mesh: THREE.Object3D, baseRadius: number): void => {
-      const dist = cam.distanceTo(mesh.getWorldPosition(_bodyWorld));
-      mesh.scale.setScalar(pixelFloorScale(baseRadius, dist, worldPerPixelPerDist, this.minPixelRadius));
-    };
-
-    // The Sun is deliberately not floored — it keeps its true drawn size.
-    for (const planet of this.planets) floorScale(planet.mesh, planet.baseRadius);
-    if (this.moon) floorScale(this.moon.handle.object, this.moon.baseRadius);
-  }
-
-  /**
-   * A soft-edged white disc drawn once into a canvas and cached. PointsMaterial
-   * without a map draws square dots; mapping this makes each orbit sample a round
-   * dot with a feathered edge, which is what gives the dotted-ring look. Tinted
-   * per orbit via the material's `color`.
-   */
-  private orbitDotTexture(): THREE.CanvasTexture {
-    if (this.dotTexture) return this.dotTexture;
-    const size = 64;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    const r = size / 2;
-    const gradient = ctx.createRadialGradient(r, r, 0, r, r, r);
-    gradient.addColorStop(0.0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.55, 'rgba(255,255,255,1)');
-    gradient.addColorStop(1.0, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    this.dotTexture = this.track(texture);
-    return texture;
-  }
-
-  /**
-   * Build one body's dotted orbit trail. The orbit is sampled once into a fine
-   * equal-time table (`samples`, world-space); the drawn dots are a small buffer
-   * refilled each frame from that table at a density that crowds the body and
-   * thins into the past (updateOrbitTrails). A fixed brightness ramp fades the
-   * tail, so "where the body is now" reads brightest — the look the reference
-   * shows. Pass `anchor` for a body that orbits another (the Moon): then the
-   * samples are treated as offsets from that anchor's live position.
-   */
-  private addOrbitTrail(opts: {
-    color: number;
-    periodMs: number;
-    t0Ms: number;
-    sampleAt: (timeMs: number) => readonly [number, number, number];
-    anchor?: THREE.Object3D;
-  }): void {
-    const { color, periodMs, t0Ms, sampleAt, anchor } = opts;
-
-    const K = ORBIT_SAMPLE_COUNT;
-    const samples = new Float32Array(K * 3);
-    for (let i = 0; i < K; i += 1) {
-      const [x, y, z] = sampleAt(t0Ms + (periodMs * i) / K);
-      samples[i * 3] = x;
-      samples[i * 3 + 1] = y;
-      samples[i * 3 + 2] = z;
-    }
-
-    const dots = ORBIT_DOT_OFFSETS.length;
-    const positions = new Float32Array(dots * 3); // (re)filled every frame
-    const geometry = this.track(new THREE.BufferGeometry());
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    // Per-dot brightness ramp, constant across frames: full at the head (offset
-    // 0, the planet), fading down the older tail. vertexColors multiplies this
-    // onto the material's orbit colour.
-    const colors = new Float32Array(dots * 3);
-    for (let i = 0; i < dots; i += 1) {
-      // Bright head, fading down the tail. The tight bloom radius keeps this
-      // reading as a crisp shine rather than a spreading haze.
-      const fade = 0.35 + 0.65 * (1 - i / Math.max(1, dots - 1));
-      colors[i * 3] = fade;
-      colors[i * 3 + 1] = fade;
-      colors[i * 3 + 2] = fade;
-    }
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const material = this.track(
-      new THREE.PointsMaterial({
-        color,
-        vertexColors: true,
-        map: this.orbitDotTexture(),
-        // Constant pixel size at any zoom, so dots stay crisp from a whole-system
-        // overview down to a close pass.
-        size: 2.8,
-        sizeAttenuation: false,
-        transparent: true,
-        opacity: 1,
-        // Normal (not additive) blending: over the black sky the dots still read
-        // bright, but they don't stack into hot spots where the ring is dense —
-        // that stacking is what made the earlier version strobe.
-        depthWrite: false,
-      }),
-    );
-
-    const points = new THREE.Points(geometry, material);
-    // Put the dots on the bloom layer (keeping layer 0 too) so the same glow pass
-    // that lights the Sun blooms the orbits. Without this they'd be masked to
-    // black in the bloom pass and stay matte.
-    points.layers.enable(BLOOM_LAYER);
-    this.scene.add(points);
-    this.orbitTrails.push({ geometry, positions, samples, periodMs, t0Ms, anchor });
-  }
-
-  private buildPlanets(): void {
-    const around = new Date(this.simTimeMs);
-    for (const cfg of PLANETS) {
-      const baseRadius = drawnRadius(cfg.radiusAu, this.sizeModel);
-      let mesh: THREE.Object3D;
-      // What click-to-pivot raycasts against — often a child of `mesh`.
-      let pickTarget: THREE.Object3D;
-      if (cfg.body === Body.Earth) {
-        // Earth gets the full realistic treatment (day/night/clouds); see earth.ts.
-        this.earth = this.track(createEarth(baseRadius));
-        mesh = this.earth.group;
-        this.scene.add(mesh);
-        // Pick against the globe child so click-to-pivot still lands on Earth.
-        const globe = mesh.getObjectByName('Earth-globe');
-        pickTarget = globe ?? mesh;
-      } else if (cfg.create) {
-        // Each other planet has its own file that builds a textured body (its
-        // own map, tilt and spin). We add it, pick against its target, and keep
-        // the handle so it gets spun every frame and disposed on teardown.
-        const handle = this.track(cfg.create(baseRadius));
-        this.planetBodies.push(handle);
-        mesh = handle.object;
-        this.scene.add(mesh);
-        pickTarget = handle.pickTarget ?? mesh;
-      } else {
-        // Fallback for any planet without its own file: a flat coloured sphere.
-        const geometry = this.track(
-          new THREE.SphereGeometry(baseRadius, 24, 24),
-        );
-        const material = this.track(
-          new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.9, metalness: 0 }),
-        );
-        mesh = new THREE.Mesh(geometry, material);
-        this.scene.add(mesh);
-        pickTarget = mesh;
-      }
-      this.planets.push({ body: cfg.body, mesh, baseRadius });
-      this.picks.addBody(mesh, pickTarget, baseRadius);
-      // Name label in the planet's own colour. It tracks the mesh centre; the
-      // per-frame pixel-floor scaling doesn't move it (the label sits at the
-      // mesh origin, and its offset from the dot is screen-space, not world).
-      addLabel(mesh, cfg.label, '#' + cfg.color.toString(16).padStart(6, '0'));
-
-      // Orbit path: a dotted comet-tail, dense at the planet's live position and
-      // spreading out along the older path behind it (see addOrbitTrail).
-      this.addOrbitTrail({
-        color: cfg.color,
-        periodMs: cfg.orbitalPeriodDays * DAY_MS,
-        t0Ms: around.getTime(),
-        sampleAt: (timeMs) => eclipticToWorld(planetPosition(cfg.body, new Date(timeMs))),
-      });
-    }
-    this.updatePlanetPositions();
-  }
-
-  /**
-   * Build the Moon from its own body file (bodies/moon.ts): a lit grey sphere,
-   * lit by the Sun so it shows phases, pickable/zoomable and spun like every other
-   * body. Its orbit is drawn as a geocentric ring anchored to Earth — the Moon
-   * orbits Earth, not the Sun, so a heliocentric ring would trace a meaningless
-   * wiggle instead of a loop.
-   */
-  private buildMoon(): void {
-    const baseRadius = drawnRadius(MOON_RADIUS_KM / KM_PER_AU, this.sizeModel);
-    const handle = this.track(createMoon(baseRadius));
-    const object = handle.object;
-    this.scene.add(object);
-    this.moon = { handle, baseRadius };
-    this.picks.addBody(object, handle.pickTarget ?? object, baseRadius);
-    addLabel(object, 'Moon', '#cfd3da');
-
-    // Geocentric orbit ring: the samples are offsets from Earth (geoMoonPosition),
-    // and updateOrbitTrails re-anchors them to Earth's live position each frame.
-    if (this.earth) {
-      this.addOrbitTrail({
-        color: 0x9aa3b0,
-        periodMs: MOON_SIDEREAL_DAYS * DAY_MS,
-        t0Ms: this.simTimeMs,
-        anchor: this.earth.group,
-        sampleAt: (timeMs) => eclipticToWorld(geoMoonPosition(new Date(timeMs))),
-      });
-    }
-    this.updateMoonPosition();
-    // The planet trails were filled by buildPlanets; fill the Moon's now too so
-    // it's correct even if something renders before the first animation frame.
-    this.updateOrbitTrails();
-  }
-
-  /** Place and spin the Moon for the current sim time (position + tidal-lock spin). */
-  private updateMoonPosition(): void {
-    if (!this.moon) return;
-    const [x, y, z] = eclipticToWorld(planetPosition(Body.Moon, new Date(this.simTimeMs)));
-    this.moon.handle.object.position.set(x, y, z);
-    this.moon.handle.update?.(this.simTimeMs);
-  }
-
-  private updatePlanetPositions(): void {
-    const date = new Date(this.simTimeMs);
-    for (const planet of this.planets) {
-      const [x, y, z] = eclipticToWorld(planetPosition(planet.body, date));
-      planet.mesh.position.set(x, y, z);
-    }
-    // Spin the textured planets on their axes (deterministic from sim time, so
-    // scrubbing is exact). Positions and spin move together from one place.
-    for (const body of this.planetBodies) body.update?.(this.simTimeMs);
-    // Moon before the trails: its geocentric ring reads Earth's freshly-set
-    // position (Earth is a planet above), and the ring is refilled in updateOrbitTrails.
-    this.updateMoonPosition();
-    this.updateOrbitTrails();
-  }
-
-  /**
-   * Refill each orbit's dot buffer from its precomputed table. The head dot sits
-   * at the planet's current orbital phase; every other dot steps a fixed fraction
-   * of a period into the past (ORBIT_DOT_OFFSETS), with the gaps growing — so the
-   * dots crowd the planet and spread out along the trail it came from. Positions
-   * are interpolated between table entries, and the table is read circularly, so
-   * the tail wraps smoothly around the loop. Cheap: only table lookups per frame.
-   */
-  private updateOrbitTrails(): void {
-    const K = ORBIT_SAMPLE_COUNT;
-    for (const trail of this.orbitTrails) {
-      const phase = (this.simTimeMs - trail.t0Ms) / trail.periodMs;
-      const head = phase - Math.floor(phase); // body's current phase, [0,1)
-      // Geocentric rings (the Moon) store offsets from an anchor body; add its
-      // live world position so the ring rides along. Heliocentric orbits: zero.
-      let ax = 0;
-      let ay = 0;
-      let az = 0;
-      if (trail.anchor) {
-        trail.anchor.getWorldPosition(_anchorWorld);
-        ax = _anchorWorld.x;
-        ay = _anchorWorld.y;
-        az = _anchorWorld.z;
-      }
-      const p = trail.positions;
-      const s = trail.samples;
-      let w = 0;
-      for (let d = 0; d < ORBIT_DOT_OFFSETS.length; d += 1) {
-        let f = head - ORBIT_DOT_OFFSETS[d];
-        f -= Math.floor(f); // wrap into [0,1)
-        const t = f * K;
-        const lo = Math.floor(t) % K;
-        const hi = (lo + 1) % K;
-        const frac = t - Math.floor(t);
-        const a = lo * 3;
-        const b = hi * 3;
-        p[w++] = ax + s[a] + (s[b] - s[a]) * frac;
-        p[w++] = ay + s[a + 1] + (s[b + 1] - s[a + 1]) * frac;
-        p[w++] = az + s[a + 2] + (s[b + 2] - s[a + 2]) * frac;
-      }
-      (trail.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
-    }
-  }
-
-  /**
-   * Spin the Earth and refresh its day/night terminator. The Earth shader works
-   * in world space (Sun at the origin), so it only needs Earth's world position,
-   * already set by updatePlanetPositions just before this every frame.
-   */
-  private updateEarth(): void {
-    if (!this.earth) return;
-    this.earth.update(this.earth.group.position, this.simTimeMs);
   }
 
   /** Recentre the camera on a heliocentric ecliptic point (AU). */
@@ -753,11 +393,9 @@ export class SolarSystemEngine {
   /** Jump the simulation to a specific instant. */
   setDate(date: Date): void {
     this.simTimeMs = date.getTime();
-    // dt 0: scrubbing repositions everything but doesn't advance ambient animation.
+    // dt 0: scrubbing repositions every body but doesn't advance ambient animation.
     const ctx = this.frameContext(0);
     for (const entity of this.entities) entity.update(ctx);
-    this.updatePlanetPositions();
-    this.updateEarth();
     this.updateLagrangePositions();
     for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
   }
@@ -793,18 +431,16 @@ export class SolarSystemEngine {
 
       // timeScale is simulated seconds per real second; dt is real seconds.
       this.simTimeMs += dt * this.timeScale * 1000;
-      // Advance every entity (currently just the Sun; more move here each slice).
+      // Advance every body (Sun, planets, Moon) — each positions, spins, floors
+      // and refills its own trail. Annotations are still updated below.
       const ctx = this.frameContext(dt);
       for (const entity of this.entities) entity.update(ctx);
-      this.updatePlanetPositions();
-      this.updateEarth();
       this.updateLagrangePositions();
       for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
 
       // Drive the camera: follow any focused body, settle the controls, retune
-      // the clip planes — all before we size bodies to the now-settled distance.
+      // the clip planes. Bodies floored themselves in their own update above.
       this.cameraController.update(dt);
-      this.applyBodyScales();
       this.pipeline.render();
       this.labelRenderer.render(this.scene, this.camera);
     };
