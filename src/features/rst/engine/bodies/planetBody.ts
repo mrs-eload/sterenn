@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { createAtmosphere } from './atmosphere.ts';
+import type { AtmosphereOptions } from './atmosphere.ts';
 
 /**
  * Shared scaffolding for the image-textured planets. Each planet gets its own
@@ -56,6 +58,8 @@ export interface TexturedPlanetOptions {
   axialTiltDeg: number;
   /** Sidereal rotation period in hours; negative = retrograde. */
   rotationPeriodHours: number;
+  /** Add a glowing atmosphere shell (gas/ice giants). Omit for an airless body. */
+  atmosphere?: AtmosphereOptions;
 };
 
 /**
@@ -88,6 +92,12 @@ export function createTexturedPlanet(
   group.name = options.name;
   group.rotation.z = THREE.MathUtils.degToRad(options.axialTiltDeg);
   group.add(globe);
+
+  // Optional atmosphere shell — self-updating, so just add and track for disposal.
+  if (options.atmosphere) {
+    const atmosphere = track(createAtmosphere(radius, options.atmosphere));
+    group.add(atmosphere.mesh);
+  }
 
   return {
     object: group,

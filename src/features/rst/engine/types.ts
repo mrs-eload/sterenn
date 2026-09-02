@@ -22,6 +22,14 @@ export interface TrajectoryPoint {
 /** A custom object (spacecraft, comet, …) placed by an explicit ephemeris. */
 export interface TrajectoryObjectConfig {
   id: string;
+  /**
+   * Name of the body this object orbits (e.g. 'Earth'). Its trajectory points are
+   * offsets FROM that body — the JPL Horizons vector table is generated with that
+   * body as the center — so the engine parents the object under it and the path
+   * rides along, like a moon. This is what makes the placement general: RST orbits
+   * Earth's L2, but another probe can name any body it circles.
+   */
+  parentBody: string;
   /** Marker + default path colour (0xRRGGBB). */
   color: number;
   /** Marker display radius in AU (exaggerated; not physical). */

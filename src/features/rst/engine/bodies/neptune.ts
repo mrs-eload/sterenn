@@ -11,5 +11,7 @@ export function createNeptune(radius: number): PlanetHandle {
     textureUrl: `${TEXTURE_BASE}neptune/2k_neptune.jpg`,
     axialTiltDeg: 28.32,
     rotationPeriodHours: 16.11,
+    // Deep azure methane haze.
+    atmosphere: { color: 0x6f9fe6, scale: 1.04 },
   });
 }

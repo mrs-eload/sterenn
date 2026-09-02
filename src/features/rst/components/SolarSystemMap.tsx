@@ -10,8 +10,16 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 interface SolarSystemMapProps {
-  horizonsData: FullHorizonsPayload;
+  trajectory: FullHorizonsPayload;
 }
+
+// The body RST orbits — its Horizons table is Earth-centred, so its points are
+// offsets from Earth and the engine parents it under Earth.
+const RST_PARENT_BODY = 'Earth';
+
+// The RST model's nose-trim: euler angles that bring its forward axis onto +Z, so
+// the engine's tangent orientation composes on top correctly.
+const RST_CALIBRATION: [number, number, number] = [0, -1.6 + Math.PI, 0];
 
 // The speed slider is a signed, continuous "shuttle": position 0 is the centre
 // (real time), the right half accelerates forward, the left half runs backward,
@@ -77,9 +85,10 @@ function formatSpeed(pos: number, playing: boolean): string {
 }
 
 /**
- * Turn a Horizons vector table into engine trajectory points. The RST file is
- * heliocentric, ecliptic-of-J2000, in km — the engine's native frame — so we
- * only convert km→AU and parse the (already ISO) timestamp to epoch ms.
+ * Turn a Horizons vector table into engine trajectory points. Both RST files are
+ * ecliptic-of-J2000, in km — the engine's native frame — so we only convert km→AU
+ * and parse the (already ISO) timestamp to epoch ms. Whether those km are relative
+ * to the Sun or to Earth is the caller's `frame`; the numbers convert identically.
  */
 function toTrajectoryPoints(data: FullHorizonsPayload): TrajectoryPoint[] {
   return data.trajectory.map((pt) => ({
@@ -88,7 +97,7 @@ function toTrajectoryPoints(data: FullHorizonsPayload): TrajectoryPoint[] {
   }));
 }
 
-export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ horizonsData }) => {
+export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectory }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SolarSystemEngine | null>(null);
   const teardownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,7 +118,6 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ horizonsData }) 
     // Build the engine once and reuse it across React StrictMode's synchronous
     // unmount/remount (dev), deferring teardown so the remount reclaims it.
     if (!engineRef.current) {
-      const points = toTrajectoryPoints(horizonsData);
       const engine = new SolarSystemEngine(container, {
         // Start at real "now" so the clock reads true UTC and the spacecraft
         // sits at its present position along the trajectory.
@@ -143,24 +151,22 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ horizonsData }) 
       const dracoLoader = new DRACOLoader();
       loader.setDRACOLoader( dracoLoader );
       loader.load("/sterenn/horizons/rst/model/RST_v4.glb", (glb: GLTF)=> {
-        let rst_spaceraft = glb.scene.clone();
-        console.log(rst_spaceraft)
-        rst_spaceraft?.scale.set(.000001,.000001,.000001)
-        // Base rotation is now a calibration offset, not the final attitude: the
-        // engine aims the nose down the trajectory (+Z = direction of travel) and
-        // composes this on top. Trim these angles until the nose points along
-        // the path (and the model rolls the way you want).
-        rst_spaceraft?.rotation.set(0,-1.6 + Math.PI,0)
-        engine.addTrajectoryObject({
+        const rstSpacecraft = glb.scene.clone();
+        rstSpacecraft.scale.set(.0000001,.0000001,.0000001)
+        // Nose-trim base; the engine aims the nose down the trajectory on top of it.
+        rstSpacecraft.rotation.set(...RST_CALIBRATION);
+        // RST's points are offsets from Earth, so it's parented under Earth and its
+        // L2 halo rides along — see SolarSystemEngine.setSpacecraft.
+        engine.setSpacecraft({
           id: 'rst',
-          color: 0x00ffcc,
+          parentBody: RST_PARENT_BODY,
+          color: 0xffffff,
           radius: 0.03,
-          points,
-          object: rst_spaceraft,
+          points: toTrajectoryPoints(trajectory),
+          object: rstSpacecraft,
           orientToTrajectory: true,
           label: 'RST',
         });
-
         setSimDate(engine.getDate());
       });
       engine.start();
@@ -185,7 +191,7 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ horizonsData }) 
         teardownTimer.current = null;
       }, 0);
     };
-  }, [horizonsData]);
+  }, [trajectory]);
 
   const applyRate = (nextPlaying: boolean, nextPos: number): void => {
     engineRef.current?.setTimeScale(nextPlaying ? rateFromPos(nextPos) : 0);

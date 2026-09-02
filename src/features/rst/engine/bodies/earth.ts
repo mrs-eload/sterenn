@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TIFFLoader } from 'three/examples/jsm/loaders/TIFFLoader.js';
 import { earthOrientationBasis } from './earthOrientation.ts';
+import { BLOOM_LAYER } from '../render/BloomPipeline';
 
 /**
  * A realistic Earth rendered by a single custom shader on one sphere. Day map,
@@ -105,10 +106,13 @@ const EARTH_FRAGMENT = /* glsl */ `
     vec3 normal = normalize(vTbn * tNormal);
 
     // Clouds cast a soft shadow: darken the daylit SURFACE (never uncover the
-    // night lights). Offset along the Sun direction in UV space.
-    vec3 shadowShift = 0.0005 * inverse(vTbn) * (vNormal - sunDir);
+    // night lights). The shadow is offset from the cloud along the Sun direction
+    // in UV space so it falls BESIDE the cloud rather than hiding under it —
+    // (vNormal - sunDir) vanishes at the sub-solar point and grows toward the
+    // terminator, so shadows are short at noon and rake long at dusk/dawn.
+    vec3 shadowShift = 0.006 * inverse(vTbn) * (vNormal - sunDir);
     float cloudShadow = texture2D(u_cloudTexture, vUv - shadowShift.xy).r;
-    dayColor *= 1.0 - 0.4 * cloudShadow;
+    dayColor *= 1.0 - 0.5 * cloudShadow;
 
     vec3 color = mix(nightColor, dayColor, dayAmount);
 
@@ -139,44 +143,67 @@ const EARTH_FRAGMENT = /* glsl */ `
 `;
 
 const ATMOSPHERE_VERTEX = /* glsl */ `
-  varying vec3 vNormalWorld;  // world space, for the day/night fade
-  varying vec3 vNormalView;   // view space, for the fresnel rim
-  varying vec3 vViewDir;      // view space, fragment → camera
+  varying vec3 vNormalWorld;    // world space, for the day/night fade
+  varying vec3 vNormalView;     // view space, for the fresnel rim
+  varying vec3 vViewDir;        // view space, fragment → camera
+  varying vec3 vViewCenterDir;  // world space, camera → planet centre
 
   void main() {
     vNormalWorld = normalize(mat3(modelMatrix) * normal);
     vNormalView = normalize(normalMatrix * normal);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vViewDir = normalize(-mv.xyz);
+    // The planet centre in world space (the shell is centred on the globe). Its
+    // direction from the camera tells the fragment whether the Sun sits BEHIND the
+    // disc — that's when the atmosphere is backlit.
+    vec3 worldCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vViewCenterDir = normalize(worldCenter - cameraPosition);
     gl_Position = projectionMatrix * mv;
   }
 `;
 
 const ATMOSPHERE_FRAGMENT = /* glsl */ `
   uniform vec3 u_sunDirection;
-  uniform vec3 u_color;
+  uniform vec3 u_color;            // day-limb halo (cool blue)
+  uniform vec3 u_backlightColor;   // backlit crescent (warm, scattered sunlight)
+  uniform float u_backlightStrength;
 
   varying vec3 vNormalWorld;
   varying vec3 vNormalView;
   varying vec3 vViewDir;
+  varying vec3 vViewCenterDir;
 
   void main() {
     vec3 sunDir = normalize(u_sunDirection);
-    // Fade the glow around the terminator so only the daylit limb lights up.
     float cosSun = dot(vNormalWorld, sunDir);
-    float dayFade = 1.0 / (1.0 + exp(-7.0 * (cosSun + 0.1)));
 
     // Limb glow, following the reference (sangillee.com): brightest where the
     // shell's far-side normal points away from the camera — right at the planet's
     // edge — and fading outward to the shell's rim. The reference uses vPosition,
     // the view-space fragment direction (camera -> fragment); our vViewDir is its
-    // negation (fragment -> camera), hence the minus sign. (Our earlier
-    // 1 - abs(dot) inverted this, pinning the glow to the OUTER rim so it detached
-    // from the planet.)
+    // negation (fragment -> camera), hence the minus sign.
     float rim = max(-dot(vViewDir, vNormalView), 0.0);
-    float intensity = pow(3.0 * rim, 3.0);
 
-    gl_FragColor = vec4(u_color, clamp(intensity * dayFade, 0.0, 1.0));
+    // Day-limb halo: the soft blue glow, faded around the terminator so only the
+    // daylit limb lights up.
+    float dayFade = 1.0 / (1.0 + exp(-7.0 * (cosSun + 0.1)));
+    float dayGlow = pow(3.0 * rim, 3.0) * dayFade;
+
+    // Warm sunward-limb glow — the Sun "hitting the atmosphere". It lives on the
+    // limb toward the Sun (sunwardLimb) and is lifted a lot when the Sun is behind
+    // the disc from the camera (backlit), where the crescent wraps into a full
+    // bright ring. Kept present (never fully off) and broad — a lower rim power
+    // than the day halo — so it reads and blooms as a flare, not a hairline, from
+    // a wide range of viewing angles rather than only at a perfect eclipse.
+    float sunwardLimb = smoothstep(-0.25, 0.45, cosSun);
+    float backlit = smoothstep(-0.20, 0.85, dot(vViewCenterDir, sunDir));
+    float backGlow = pow(3.0 * rim, 2.0) * sunwardLimb * (0.35 + 1.65 * backlit) * u_backlightStrength;
+
+    // Additive (a = 1): the blend adds this colour onto the scene, so the two
+    // contributions simply sum. The warm scattered light reads distinct from the
+    // cool day halo and, on the bloom layer, blooms into a soft flare.
+    vec3 add = u_color * dayGlow + u_backlightColor * backGlow;
+    gl_FragColor = vec4(add, 1.0);
   }
 `;
 
@@ -251,6 +278,9 @@ export function createEarth(radius: number, options: EarthOptions = {}): EarthHa
         uniforms: {
           u_sunDirection: { value: sunDir },
           u_color: { value: new THREE.Color(0x3a7bd5) },
+          // Warm, faintly orange scattered sunlight for the backlit limb.
+          u_backlightColor: { value: new THREE.Color(0xffd9a8) },
+          u_backlightStrength: { value: 0.7 },
         },
         vertexShader: ATMOSPHERE_VERTEX,
         fragmentShader: ATMOSPHERE_FRAGMENT,
@@ -262,6 +292,9 @@ export function createEarth(radius: number, options: EarthOptions = {}): EarthHa
     );
     const atmosphere = new THREE.Mesh(atmoGeometry, atmoMaterial);
     atmosphere.name = 'Earth-atmosphere';
+    // On the bloom layer (keeping layer 0) so the backlit ring blooms into a soft
+    // flare, like the Sun and the orbit dots — the same glow pass lights it.
+    atmosphere.layers.enable(BLOOM_LAYER);
     group.add(atmosphere);
   }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { loadColorMap, spinAngle, TEXTURE_BASE } from './planetBody.ts';
 import type { PlanetHandle } from './planetBody.ts';
+import { createAtmosphere } from './atmosphere.ts';
 
 /**
  * Saturn: the banded globe plus its rings. A 26.7° tilt (so the rings open
@@ -63,17 +64,58 @@ export function createSaturn(radius: number): PlanetHandle {
   ringMat.map = track(
     loadColorMap(`${TEXTURE_BASE}saturn/2k_saturn_ring_alpha.png`, loader, () => (ringMat.needsUpdate = true)),
   );
+
+  // The globe casts its shadow across the rings. Approximate the Sun as infinitely
+  // far (parallel rays): a ring point lies in the umbra when it's on the planet's
+  // anti-Sun side AND falls within the globe's silhouette — inside a cylinder of
+  // the planet's radius aimed down the Sun direction. Everything is read from the
+  // model matrix (the Sun sits at the world origin), so no per-frame uniform is
+  // needed; the planet radius is scaled by the matrix so the shadow still fits
+  // when the pixel floor has enlarged the whole body.
+  ringMat.onBeforeCompile = (shader): void => {
+    shader.uniforms.u_planetRadius = { value: radius };
+    shader.vertexShader =
+      'varying vec3 vRingWorld;\nvarying vec3 vRingCenter;\nvarying float vRingScale;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        /* glsl */ `#include <begin_vertex>
+        vRingWorld = (modelMatrix * vec4(position, 1.0)).xyz;
+        vRingCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        vRingScale = length(modelMatrix[0].xyz);`,
+      );
+    shader.fragmentShader =
+      'uniform float u_planetRadius;\nvarying vec3 vRingWorld;\nvarying vec3 vRingCenter;\nvarying float vRingScale;\n' +
+      shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        /* glsl */ `#include <map_fragment>
+        {
+          vec3 toSun = normalize(-vRingCenter);        // Sun is at the world origin
+          vec3 rel = vRingWorld - vRingCenter;         // ring point offset from the globe centre
+          float along = dot(rel, toSun);               // <= 0 on the shadowed hemisphere
+          float perp = length(rel - along * toSun);    // distance from the Sun-line through the centre
+          float worldRadius = u_planetRadius * vRingScale;
+          // 1 inside the umbra, with a soft penumbra across the silhouette edge.
+          float shadow = step(along, 0.0) * (1.0 - smoothstep(worldRadius * 0.9, worldRadius * 1.1, perp));
+          diffuseColor.rgb *= 1.0 - 0.8 * shadow;
+        }`,
+      );
+  };
   const rings = new THREE.Mesh(ringGeo, ringMat);
   rings.name = 'Saturn-rings';
   // RingGeometry lies in XY; lay it into the equatorial (XZ) plane. The group's
   // tilt then opens it toward the viewer.
   rings.rotation.x = -Math.PI / 2;
 
+  // Pale-gold haze on the globe's limb. Sits well inside the rings (1.2 R+), so
+  // it doesn't interfere with them.
+  const atmosphere = track(createAtmosphere(radius, { color: 0xf0e2b0, scale: 1.03 }));
+
   const group = new THREE.Group();
   group.name = 'Saturn';
   group.rotation.z = THREE.MathUtils.degToRad(AXIAL_TILT_DEG);
   group.add(globe);
   group.add(rings);
+  group.add(atmosphere.mesh);
 
   return {
     object: group,

@@ -67,6 +67,8 @@ export interface BodyOptions {
  */
 export class Body implements SceneEntity {
   readonly object3D: THREE.Group; // the SystemGroup
+  /** Stable identifier (e.g. 'Earth'), used to look this body up as a parent. */
+  readonly name: string;
   private readonly placement = new THREE.Group();
   private readonly visual: BodyVisual;
   private readonly positionInParentFrame: (simTimeMs: number) => readonly [number, number, number];
@@ -79,6 +81,7 @@ export class Body implements SceneEntity {
   private readonly attachments: SceneEntity[] = [];
 
   constructor(options: BodyOptions) {
+    this.name = options.name;
     this.visual = options.visual;
     this.positionInParentFrame = options.positionInParentFrame;
     this.minPixelRadius = options.minPixelRadius ?? 0;
@@ -123,6 +126,18 @@ export class Body implements SceneEntity {
   attach(entity: SceneEntity): void {
     this.object3D.add(entity.object3D);
     this.attachments.push(entity);
+  }
+
+  /**
+   * Add a foreign object under BodyPlacement so it RIDES this body's position
+   * (translation only, no spin or pixel-floor scale) — exactly how a moon is
+   * carried. Used to park a geocentric spacecraft on Earth: its parent-frame
+   * points then read as offsets from Earth, so its L2 halo travels with Earth.
+   * The rider's own entity is advanced and disposed by whoever owns it (the
+   * engine), not by this body.
+   */
+  addRider(object: THREE.Object3D): void {
+    this.placement.add(object);
   }
 
   update(ctx: FrameContext): void {

@@ -12,5 +12,7 @@ export function createJupiter(radius: number): PlanetHandle {
     textureUrl: `${TEXTURE_BASE}jupiter/2k_jupiter.jpg`,
     axialTiltDeg: 3.13,
     rotationPeriodHours: 9.925,
+    // Warm tan haze over the cloud tops.
+    atmosphere: { color: 0xe8c79a, scale: 1.03 },
   });
 }

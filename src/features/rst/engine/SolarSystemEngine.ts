@@ -11,7 +11,7 @@ import { createPlanetBodies } from './bodies/solarSystem';
 import type { Body } from './bodies/Body';
 import { LagrangeGroup } from './bodies/LagrangeGroup';
 import type { LagrangeConfig } from './bodies/LagrangeGroup';
-import { TrajectoryEntity } from './bodies/TrajectoryEntity';
+import { SpacecraftEntity } from './bodies/SpacecraftEntity';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
 
 /**
@@ -48,6 +48,12 @@ export class SolarSystemEngine {
 
   // The Earth body, kept so annotations (Lagrange points) can attach to it.
   private readonly earthBody: Body;
+  // Every planet body by name, so a spacecraft can name the body it orbits and be
+  // parented under it (see setSpacecraft).
+  private readonly bodiesByName = new Map<string, Body>();
+  // The single spacecraft entity, kept so it can be rebuilt/replaced without
+  // touching the rest of the scene. Null until setSpacecraft is first called.
+  private spacecraft: SpacecraftEntity | null = null;
   // Geometries/materials we create and must dispose to free GPU memory.
   private readonly disposables: Array<{ dispose: () => void }> = [];
 
@@ -136,16 +142,18 @@ export class SolarSystemEngine {
     // The body tree: the Sun at the origin, then the eight planets (Earth
     // carrying the Moon as a child) — each a self-positioning, self-updating
     // entity. Lagrange points and trajectory objects join later, via
-    // addLagrangePoints / addTrajectoryObject, as more entities.
+    // addLagrangePoints / setSpacecraft, as more entities.
     this.addEntity(new SunEntity(this.sizeModel, this.picks));
     const { bodies, earth } = createPlanetBodies({
       sizeModel: this.sizeModel,
       minPixelRadius: this.minPixelRadius,
-      startTimeMs: this.simTimeMs,
       picks: this.picks,
     });
     this.earthBody = earth;
-    for (const body of bodies) this.addEntity(body);
+    for (const body of bodies) {
+      this.addEntity(body);
+      this.bodiesByName.set(body.name, body);
+    }
     // Position every body and fill its orbit trail before the first render.
     const initCtx = this.frameContext(0);
     for (const entity of this.entities) entity.update(initCtx);
@@ -195,13 +203,41 @@ export class SolarSystemEngine {
   }
 
   /**
-   * Add a custom object placed by an explicit trajectory (a spacecraft, comet,
-   * …). It becomes a body-tree entity that draws the full path and rides a marker
-   * along it, interpolated from the current simulation time — see TrajectoryEntity.
+   * Set (or replace) the spacecraft placed by an explicit trajectory. It becomes
+   * a body-tree entity that draws the full path and rides a marker along it,
+   * interpolated from the current simulation time — see SpacecraftEntity.
+   *
+   * Its trajectory points are offsets from the body named by `config.parentBody`,
+   * so the craft is parented under that body's position and its path rides along,
+   * like a moon (RST's L2 halo loops around Earth and travels with it). Calling
+   * this again rebuilds only the spacecraft, reusing the caller's model object —
+   * the old entity's own geometry is disposed and its marker/label torn down, but
+   * the shared model isn't. Throws if `parentBody` names no known body.
    */
-  addTrajectoryObject(config: TrajectoryObjectConfig): void {
-    const entity = new TrajectoryEntity(config, this.picks);
-    this.addEntity(entity);
+  setSpacecraft(config: TrajectoryObjectConfig): void {
+    const parent = this.bodiesByName.get(config.parentBody);
+    if (!parent) {
+      throw new Error(
+        `setSpacecraft: unknown parentBody "${config.parentBody}" (known: ${[...this.bodiesByName.keys()].join(', ')})`,
+      );
+    }
+
+    if (this.spacecraft) {
+      const idx = this.entities.indexOf(this.spacecraft);
+      if (idx >= 0) this.entities.splice(idx, 1);
+      this.spacecraft.object3D.parent?.remove(this.spacecraft.object3D);
+      this.spacecraft.dispose();
+      this.spacecraft = null;
+    }
+
+    const entity = new SpacecraftEntity(config, this.picks);
+    // Ride the parent body's position (added under its placement, like a moon),
+    // so the craft's offsets land at the right heliocentric spot and its path
+    // travels with the parent. The parent updates before this entity (it was
+    // added first), so its world transform is current when the marker is placed.
+    parent.addRider(entity.object3D);
+    this.entities.push(entity);
+    this.spacecraft = entity;
     // Place it now so it's correct before the first frame.
     entity.update(this.frameContext(0));
   }

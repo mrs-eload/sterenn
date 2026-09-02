@@ -24,8 +24,6 @@ export interface SolarSystemDeps {
   sizeModel: SizeModel;
   /** Screen-space visibility floor (px) applied to every planet and moon. */
   minPixelRadius: number;
-  /** Reference epoch (ms) the orbit-trail samples are generated at (the sim start). */
-  startTimeMs: number;
   picks: PickRegistry;
 }
 
@@ -87,7 +85,6 @@ function createMoonBody(deps: SolarSystemDeps): Body {
     orbitTrail: {
       color: 0x9aa3b0,
       periodMs: MOON_SIDEREAL_DAYS * DAY_MS,
-      t0Ms: deps.startTimeMs,
       sampleAt: (ms) => eclipticToWorld(geoMoonPosition(new Date(ms))),
     },
     minPixelRadius: deps.minPixelRadius,
@@ -132,7 +129,6 @@ export function createPlanetBodies(deps: SolarSystemDeps): SolarSystemBodies {
       orbitTrail: {
         color: cfg.color,
         periodMs: cfg.orbitalPeriodDays * DAY_MS,
-        t0Ms: deps.startTimeMs,
         sampleAt: (ms) => eclipticToWorld(planetPosition(cfg.body, new Date(ms))),
       },
       minPixelRadius: deps.minPixelRadius,

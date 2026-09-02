@@ -89,7 +89,7 @@ interface SceneEntity {
 }
 ```
 
-`Body`, `OrbitTrail`, `SunEntity`, `LagrangeGroup` and `TrajectoryEntity` all
+`Body`, `OrbitTrail`, `SunEntity`, `LagrangeGroup` and `SpacecraftEntity` all
 implement it. `Body` is recursive: its `update` positions its `BodyPlacement`,
 updates and pixel-floors its visual, refills its trail, then recurses into its
 attachments (Lagrange) and children (moons) — parent before child, so a moon's
@@ -127,7 +127,7 @@ bodies/Body.ts         the generic recursive body (+ BodyVisual)
 bodies/orbitTrail.ts   the dotted comet-tail entity
 bodies/SunEntity.ts    the Sun (bare visual at the origin)
 bodies/LagrangeGroup.ts       Sun–Earth Lagrange markers, attached to the Earth body
-bodies/TrajectoryEntity.ts    a table-driven spacecraft/comet
+bodies/SpacecraftEntity.ts    a table-driven spacecraft/comet, riding the body it orbits
 bodies/solarSystem.ts  assembler: PLANETS → Body[] (Earth carries the Moon)
 bodies/planets.ts      the eight PlanetConfig entries (true radii, periods, colours)
 bodies/planetBody.ts + <planet>.ts   per-planet textured visuals
@@ -151,7 +151,11 @@ runs the loop). The camera depends on bodies only through `PickRegistry`.
 - **An annotation on a body** (like Lagrange): implement `SceneEntity`, then
   `someBody.attach(entity)` — it lives under that body's `SystemGroup`, in the
   parent frame, and is advanced and disposed with the body.
-- **A spacecraft / table-driven object:** `engine.addTrajectoryObject(config)`.
+- **A spacecraft / table-driven object:** `engine.setSpacecraft(config)`. Its
+  `config.parentBody` names the body it orbits (e.g. `'Earth'`); the points are
+  offsets from that body, so it's parented under it and its path rides along like a
+  moon (RST's L2 halo travels with Earth). Call it again to replace the spacecraft;
+  only that entity is rebuilt.
 
 Whichever it is, `SolarSystemEngine.ts` is not touched.
 

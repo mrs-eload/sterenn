@@ -12,5 +12,7 @@ export function createUranus(radius: number): PlanetHandle {
     textureUrl: `${TEXTURE_BASE}uranus/2k_uranus.jpg`,
     axialTiltDeg: 97.77,
     rotationPeriodHours: -17.24,
+    // Pale cyan methane haze.
+    atmosphere: { color: 0xb5ecef, scale: 1.04 },
   });
 }

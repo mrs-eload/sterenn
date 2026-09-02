@@ -49,6 +49,11 @@
   };
 }
 
+export interface HorizonPayload{
+  geocentric?: FullHorizonsPayload;
+  heliocentric?: FullHorizonsPayload;
+}
+
 export interface TrajectoryPoint {
   jdtdb: number;
   utcDate: string;
