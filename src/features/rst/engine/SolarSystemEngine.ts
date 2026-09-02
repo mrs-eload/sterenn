@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Body } from 'astronomy-engine';
+import { BloomPipeline, BLOOM_LAYER } from './render/BloomPipeline';
+import { loadSkyboxTexture } from './render/skybox';
+import { addLabel } from './labels';
+import { drawnRadius, pixelFloorScale, worldPerPixelAtUnitDistance } from './sizing';
+import type { SizeModel } from './sizing';
 import { KM_PER_AU, eclipticToWorld } from './frames';
 import { planetPosition, geoMoonPosition } from './ephemeris';
 import { PLANETS } from './bodies/planets.ts';
@@ -103,11 +103,6 @@ function buildOrbitDotOffsets(): number[] {
 }
 const ORBIT_DOT_OFFSETS = buildOrbitDotOffsets();
 
-// Objects on this layer bloom; everything else is masked to black in the bloom
-// pass, so only the Sun glows. Layer 0 stays enabled too, so the same object
-// still renders normally in the final composite (see buildComposers).
-const BLOOM_LAYER = 1;
-
 // Frame-local scratch, reused to avoid per-frame allocation in the render loop.
 const _dir = new THREE.Vector3();
 const _origin = new THREE.Vector3(0, 0, 0);
@@ -202,32 +197,20 @@ export class SolarSystemEngine {
   private readonly initialFocus: Vec3;
   private readonly initialViewDistance: number;
 
-  // Body sizing: drawn radius = sizeScale × radiusAu^sizeCompression (see options).
-  private readonly sizeScale: number;
-  private readonly sizeCompression: number;
-  // True-scale mode + the screen-space visibility floor (see EngineOptions and
-  // applyBodyScales). The Sun's base drawn radius, kept for the same per-frame
-  // rescale as the planets.
-  private readonly trueScale: boolean;
+  // Body sizing: true-scale vs. the compressed power-law (see sizing.ts + options).
+  private readonly sizeModel: SizeModel;
+  // The screen-space visibility floor (see EngineOptions and applyBodyScales).
   private readonly minPixelRadius: number;
+  // The Sun's base drawn radius, kept for the same per-frame rescale as the planets.
   private sunBaseRadius = 0;
   // Root object of each pickable body → its true radius (AU). Lets a raycast hit
   // (often a child mesh) resolve to the body's centre and size, so we orbit the
   // planet's centre and stop the zoom just outside its real surface.
   private readonly bodyRadii = new Map<THREE.Object3D, number>();
 
-  // Selective bloom (two-composer trick). The bloom composer renders only the
-  // Sun (everything else blacked out) into a blurred glow buffer; the final
-  // composer renders the real scene and adds that glow back on top.
-  private bloomComposer!: EffectComposer;
-  private finalComposer!: EffectComposer;
-  private readonly bloomLayer = new THREE.Layers();
-  // Swapped in for non-bloom meshes during the bloom pass; still writes depth,
-  // so a body in front of the Sun correctly occludes its glow.
-  private readonly darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  private readonly savedMaterials = new Map<string, THREE.Material | THREE.Material[]>();
-  // Non-mesh renderables (orbit/trajectory lines) hidden during the bloom pass.
-  private readonly hiddenForBloom: THREE.Object3D[] = [];
+  // Selective-bloom post-processing (only the Sun and orbit dots glow). Owns the
+  // two-composer pipeline; the engine just calls render()/setSize()/dispose().
+  private readonly pipeline: BloomPipeline;
 
   private simTimeMs: number;
   private timeScale: number; // simulated seconds per real second (1 = real-time)
@@ -241,9 +224,11 @@ export class SolarSystemEngine {
     this.timeScale = options.timeScale ?? 1;
     this.initialFocus = options.focus ?? { x: 0, y: 0, z: 0 };
     this.initialViewDistance = options.viewDistance ?? 3;
-    this.sizeScale = options.sizeScale ?? 4.0;
-    this.sizeCompression = options.sizeCompression ?? 0.5;
-    this.trueScale = options.trueScale ?? false;
+    this.sizeModel = {
+      sizeScale: options.sizeScale ?? 4.0,
+      sizeCompression: options.sizeCompression ?? 0.5,
+      trueScale: options.trueScale ?? false,
+    };
     this.minPixelRadius = options.minPixelRadius ?? 0;
 
     const width = container.clientWidth || 1;
@@ -301,12 +286,11 @@ export class SolarSystemEngine {
     this.scene.add(sunLight);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.04));
 
-    this.bloomLayer.set(BLOOM_LAYER);
     this.buildSun();
     this.buildPlanets();
     // After the planets, so the Moon's ring can anchor to the built Earth.
     this.buildMoon();
-    this.buildComposers(width, height);
+    this.pipeline = new BloomPipeline(this.renderer, this.scene, this.camera, width, height);
 
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
 
@@ -550,60 +534,36 @@ export class SolarSystemEngine {
    * first, drop the texture rather than touch a dead scene.
    */
   private loadSkybox(url: string): void {
-    new THREE.TextureLoader().load(url, (texture) => {
+    loadSkyboxTexture(url, (texture) => {
+      // If the engine was torn down before the load resolved, drop the texture
+      // rather than touch a dead scene.
       if (this.disposed) {
         texture.dispose();
         return;
       }
-      texture.magFilter = THREE.LinearFilter;
-      texture.minFilter = THREE.LinearFilter;
-      // A 2:1 panorama wraps the sphere of directions; sRGB so it isn't washed.
-      texture.mapping = THREE.EquirectangularReflectionMapping;
-      texture.colorSpace = THREE.SRGBColorSpace;
       this.scene.background = texture;
       this.disposables.push(texture);
     });
   }
 
   /**
-   * The world radius a body is built at. In true-scale mode this is the real
-   * radius, untouched (the pixel floor then keeps it visible when far); otherwise
-   * it's the compressed power-law size — one monotonic rule for the Sun and all
-   * planets, so the Sun is always largest and the giants largest among the
-   * planets, while the smallest bodies stay visible.
-   */
-  private drawnRadius(radiusAu: number): number {
-    if (this.trueScale) return radiusAu;
-    return this.sizeScale * radiusAu ** this.sizeCompression;
-  }
-
-  /**
-   * Hold every body to a minimum apparent size. A body of world radius `r` at
-   * distance `d` from the camera spans `r / (d · k)` pixels vertically, where
-   * `k = 2·tan(fov/2) / viewportHeight` is the world-per-pixel at unit distance.
-   * Invert that: the world radius needed for `minPixelRadius` pixels grows with
-   * distance, so a body scales *up* as you retreat — never dropping below the
-   * floor — and drops back to its true size (scale 1) the moment it's close
-   * enough to clear the floor on its own. That crossover is the whole point:
-   * far away, a guaranteed dot; up close, honest proportions.
-   *
-   * The scale is uniform, so textures, tilt, rings and Earth's atmosphere shell
-   * all keep their shape. Annotation markers (Lagrange, trajectory objects) are
-   * deliberately excluded — their sizes are the caller's to choose.
+   * Hold every body to a minimum apparent size (see sizing.ts for the maths).
+   * A body scales *up* as you retreat so it never drops below the floor, then
+   * relaxes to its true size the moment it's close enough to clear the floor on
+   * its own — far away a guaranteed dot, up close honest proportions. The scale
+   * is uniform, so textures, tilt, rings and Earth's atmosphere shell keep their
+   * shape. Annotation markers (Lagrange, trajectory objects) are deliberately
+   * excluded — their sizes are the caller's to choose.
    */
   private applyBodyScales(): void {
     if (this.minPixelRadius <= 0) return;
     const height = this.renderer.domElement.clientHeight || 1;
-    const worldPerPixelPerDist =
-      (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / height;
+    const worldPerPixelPerDist = worldPerPixelAtUnitDistance(this.camera.fov, height);
     const cam = this.camera.position;
 
     const floorScale = (mesh: THREE.Object3D, baseRadius: number): void => {
-      if (baseRadius <= 0) return;
       const dist = cam.distanceTo(mesh.getWorldPosition(_bodyWorld));
-      const floorRadius = this.minPixelRadius * worldPerPixelPerDist * dist;
-      const effective = Math.max(baseRadius, floorRadius);
-      mesh.scale.setScalar(effective / baseRadius);
+      mesh.scale.setScalar(pixelFloorScale(baseRadius, dist, worldPerPixelPerDist, this.minPixelRadius));
     };
 
     // if (this.sun) floorScale(this.sun.group, this.sunBaseRadius);
@@ -635,118 +595,16 @@ export class SolarSystemEngine {
   private buildSun(): void {
     // An animated fBm-noise surface with a fresnel corona (see sun.ts). Still
     // unlit — the Sun is the light source, so its material ignores scene lights.
-    this.sunBaseRadius = this.drawnRadius(SUN_RADIUS_AU);
+    this.sunBaseRadius = drawnRadius(SUN_RADIUS_AU, this.sizeModel);
     this.sun = this.track(createSun(this.sunBaseRadius));
     this.scene.add(this.sun.group);
     this.bodyRadii.set(this.sun.group, this.sunBaseRadius);
-    this.addLabel(this.sun.group, 'Sun', '#ffcc66');
+    addLabel(this.sun.group, 'Sun', '#ffcc66');
     // Put the disc and its corona on the bloom layer so they (and only they)
     // glow. enable() keeps layer 0 on, so they still render in the final scene.
     this.sun.group.traverse((o) => o.layers.enable(BLOOM_LAYER));
     // Pick against the lit disc, not the translucent corona shell.
     this.pickables.push(this.sun.core);
-  }
-
-  /**
-   * Selective-bloom post-processing, the two-composer trick:
-   *  - bloomComposer renders the scene with every non-bloom object blacked out,
-   *    then UnrealBloomPass blurs the result into a glow buffer (off-screen).
-   *  - finalComposer renders the real scene, then a mix pass adds that glow
-   *    buffer on top, and OutputPass encodes linear → sRGB for display.
-   * Both draw the same scene/camera; the mask decides what glows.
-   */
-  private buildComposers(width: number, height: number): void {
-    const renderPass = new RenderPass(this.scene, this.camera);
-
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.2, 0.05, 0);
-    // strength, radius, threshold: threshold 0 is safe because the mask already
-    // leaves only the Sun and the orbit dots bright. Strength stays high (they
-    // keep their brightness/shine) but the radius is small, so the glow hugs each
-    // dot instead of spreading into a hazy halo over the whole scene.
-
-    this.bloomComposer = new EffectComposer(this.renderer);
-    this.bloomComposer.renderToScreen = false;
-    this.bloomComposer.addPass(renderPass);
-    this.bloomComposer.addPass(bloomPass);
-
-    const mixPass = new ShaderPass(
-      new THREE.ShaderMaterial({
-        uniforms: {
-          u_baseTexture: { value: null },
-          u_bloomTexture: { value: this.bloomComposer.renderTarget2.texture },
-        },
-        vertexShader: /* glsl */ `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: /* glsl */ `
-          uniform sampler2D u_baseTexture;
-          uniform sampler2D u_bloomTexture;
-          varying vec2 vUv;
-          void main() {
-            gl_FragColor = texture2D(u_baseTexture, vUv) + texture2D(u_bloomTexture, vUv);
-          }
-        `,
-      }),
-      // ShaderPass feeds the previous pass's output into this named uniform.
-      'u_baseTexture',
-    );
-    mixPass.needsSwap = true;
-
-    this.finalComposer = new EffectComposer(this.renderer);
-    this.finalComposer.addPass(renderPass);
-    this.finalComposer.addPass(mixPass);
-    this.finalComposer.addPass(new OutputPass());
-
-    const ratio = this.renderer.getPixelRatio();
-    this.bloomComposer.setPixelRatio(ratio);
-    this.finalComposer.setPixelRatio(ratio);
-  }
-
-  /**
-   * Bloom-pass mask (run via scene.traverse). For objects not on the bloom
-   * layer: meshes are swapped to flat black — kept in place so they still occlude
-   * the Sun's glow — while lines/points (orbit paths, trajectories) are hidden
-   * outright, since at threshold 0 even their dim colour would otherwise bloom.
-   */
-  private readonly darkenNonBloomed = (obj: THREE.Object3D): void => {
-    if (this.bloomLayer.test(obj.layers)) return;
-    const renderable = obj as THREE.Mesh & THREE.Line;
-    if (renderable.isMesh) {
-      this.savedMaterials.set(obj.uuid, renderable.material);
-      renderable.material = this.darkMaterial;
-    } else if (renderable.isLine || (renderable as unknown as THREE.Points).isPoints) {
-      this.hiddenForBloom.push(obj);
-      obj.visible = false;
-    }
-  };
-
-  /** Undo darkenNonBloomed after the bloom pass. */
-  private readonly restoreMaterial = (obj: THREE.Object3D): void => {
-    const saved = this.savedMaterials.get(obj.uuid);
-    if (saved) {
-      (obj as THREE.Mesh).material = saved;
-      this.savedMaterials.delete(obj.uuid);
-    }
-  };
-
-  /**
-   * One frame of the selective-bloom pipeline. The skybox is dropped for the
-   * bloom pass so only the Sun feeds the glow, then restored for the real render.
-   */
-  private renderScene(): void {
-    const background = this.scene.background;
-    this.scene.background = null;
-    this.scene.traverse(this.darkenNonBloomed);
-    this.bloomComposer.render();
-    this.scene.traverse(this.restoreMaterial);
-    for (const obj of this.hiddenForBloom) obj.visible = true;
-    this.hiddenForBloom.length = 0;
-    this.scene.background = background;
-    this.finalComposer.render();
   }
 
   /**
@@ -851,7 +709,7 @@ export class SolarSystemEngine {
   private buildPlanets(): void {
     const around = new Date(this.simTimeMs);
     for (const cfg of PLANETS) {
-      const baseRadius = this.drawnRadius(cfg.radiusAu);
+      const baseRadius = drawnRadius(cfg.radiusAu, this.sizeModel);
       let mesh: THREE.Object3D;
       if (cfg.body === Body.Earth) {
         // Earth gets the full realistic treatment (day/night/clouds); see earth.ts.
@@ -887,7 +745,7 @@ export class SolarSystemEngine {
       // Name label in the planet's own colour. It tracks the mesh centre; the
       // per-frame pixel-floor scaling doesn't move it (the label sits at the
       // mesh origin, and its offset from the dot is screen-space, not world).
-      this.addLabel(mesh, cfg.label, '#' + cfg.color.toString(16).padStart(6, '0'));
+      addLabel(mesh, cfg.label, '#' + cfg.color.toString(16).padStart(6, '0'));
 
       // Orbit path: a dotted comet-tail, dense at the planet's live position and
       // spreading out along the older path behind it (see addOrbitTrail).
@@ -909,14 +767,14 @@ export class SolarSystemEngine {
    * wiggle instead of a loop.
    */
   private buildMoon(): void {
-    const baseRadius = this.drawnRadius(MOON_RADIUS_KM / KM_PER_AU);
+    const baseRadius = drawnRadius(MOON_RADIUS_KM / KM_PER_AU, this.sizeModel);
     const handle = this.track(createMoon(baseRadius));
     const object = handle.object;
     this.scene.add(object);
     this.moon = { handle, baseRadius };
     this.pickables.push(handle.pickTarget ?? object);
     this.bodyRadii.set(object, baseRadius);
-    this.addLabel(object, 'Moon', '#cfd3da');
+    addLabel(object, 'Moon', '#cfd3da');
 
     // Geocentric orbit ring: the samples are offsets from Earth (geoMoonPosition),
     // and updateOrbitTrails re-anchors them to Earth's live position each frame.
@@ -1078,7 +936,7 @@ export class SolarSystemEngine {
     this.pickables.push(marker);
     if (config.label) {
       const cssColor = '#' + config.color.toString(16).padStart(6, '0');
-      this.addLabel(marker, config.label, cssColor);
+      addLabel(marker, config.label, cssColor);
     }
 
     const handle: TrajectoryHandle = {
@@ -1185,34 +1043,9 @@ export class SolarSystemEngine {
       this.scene.add(mesh);
       this.pickables.push(mesh);
       this.lagrangeMarkers.push({ name, mesh });
-      if (config.labels) this.addLabel(mesh, name, cssColor);
+      if (config.labels) addLabel(mesh, name, cssColor);
     }
     this.updateLagrangePositions();
-  }
-
-  /**
-   * Attach a billboarded text label to an object. It tracks the object's world
-   * position and always faces the camera. Rendered in the CSS2D overlay, so the
-   * text stays crisp and a constant pixel size regardless of zoom.
-   */
-  addLabel(target: THREE.Object3D, text: string, color = '#cfe3ff'): CSS2DObject {
-    const el = document.createElement('div');
-    el.textContent = text;
-    el.style.color = color;
-    el.style.fontFamily = 'system-ui, sans-serif';
-    el.style.fontSize = '12px';
-    el.style.fontWeight = '600';
-    el.style.whiteSpace = 'nowrap';
-    el.style.pointerEvents = 'none';
-    el.style.userSelect = 'none';
-    // A drop shadow keeps text legible over both the dark sky and a bright body.
-    el.style.textShadow = '0 0 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7)';
-
-    const label = new CSS2DObject(el);
-    // Nudge the text up-right of the point so it doesn't sit on the marker.
-    label.center.set(-0.05, 1.1);
-    target.add(label);
-    return label;
   }
 
   /** Re-place the Lagrange markers from Earth's position at the current time. */
@@ -1281,7 +1114,7 @@ export class SolarSystemEngine {
       // clip planes, then size bodies to the pixel floor.
       this.updateAdaptiveClipping();
       this.applyBodyScales();
-      this.renderScene();
+      this.pipeline.render();
       this.labelRenderer.render(this.scene, this.camera);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -1304,9 +1137,8 @@ export class SolarSystemEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.labelRenderer.setSize(width, height);
-    // Keep both post-processing chains matched to the canvas.
-    this.bloomComposer.setSize(width, height);
-    this.finalComposer.setSize(width, height);
+    // Keep the post-processing chain matched to the canvas.
+    this.pipeline.setSize(width, height);
   }
 
   /** Fully release GPU resources, the canvas, and listeners. */
@@ -1319,10 +1151,8 @@ export class SolarSystemEngine {
     el.removeEventListener('pointerup', this.onPointerUp, true);
     el.removeEventListener('wheel', this.onWheel);
     this.controls.dispose();
-    // Composers own their render targets (and the bloom pass); free them first.
-    this.bloomComposer.dispose();
-    this.finalComposer.dispose();
-    this.darkMaterial.dispose();
+    // The pipeline owns its composers/render targets and the dark material.
+    this.pipeline.dispose();
     for (const resource of this.disposables) resource.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {
