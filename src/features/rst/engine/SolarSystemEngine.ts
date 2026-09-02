@@ -4,43 +4,15 @@ import { BloomPipeline } from './render/BloomPipeline';
 import { loadSkyboxTexture } from './render/skybox';
 import { PickRegistry } from './camera/PickRegistry';
 import { CameraController } from './camera/CameraController';
-import { addLabel } from './labels';
 import type { SizeModel } from './sizing';
 import type { FrameContext, SceneEntity } from './SceneEntity';
-import { eclipticToWorld } from './frames';
 import { SunEntity } from './bodies/SunEntity';
 import { createPlanetBodies } from './bodies/solarSystem';
 import type { Body } from './bodies/Body';
 import { LagrangeGroup } from './bodies/LagrangeGroup';
 import type { LagrangeConfig } from './bodies/LagrangeGroup';
+import { TrajectoryEntity } from './bodies/TrajectoryEntity';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
-import { Object3D } from "three";
-
-interface WorldPoint {
-  t: number;
-  pos: [number, number, number];
-}
-
-interface TrajectoryHandle {
-  marker: THREE.Mesh |Object3D;
-  points: WorldPoint[];
-  /** Rotate the marker so its +Z nose axis tracks the trajectory tangent. */
-  orient: boolean;
-  /**
-   * The marker's own rotation at add-time, kept as a calibration offset. Each
-   * frame the tangent orientation is composed on top of it, so a caller can
-   * still trim the model's nose/roll via its base rotation.
-   */
-  baseQuat: THREE.Quaternion;
-}
-
-// Frame-local scratch, reused to avoid per-frame allocation in the render loop.
-// (Trajectory-orientation maths; body positioning/trails/floor moved to bodies/.)
-const _dir = new THREE.Vector3();
-const _origin = new THREE.Vector3(0, 0, 0);
-const _worldUp = new THREE.Vector3(0, 1, 0); // ecliptic north in world space
-const _lookMatrix = new THREE.Matrix4();
-const _alignQuat = new THREE.Quaternion();
 
 /**
  * A self-contained heliocentric solar-system renderer built directly on
@@ -74,7 +46,6 @@ export class SolarSystemEngine {
   // each and knows nothing else about them — see SceneEntity / bodies/.
   private readonly entities: SceneEntity[] = [];
 
-  private readonly trajectories: TrajectoryHandle[] = [];
   // The Earth body, kept so annotations (Lagrange points) can attach to it.
   private readonly earthBody: Body;
   // Geometries/materials we create and must dispose to free GPU memory.
@@ -164,8 +135,8 @@ export class SolarSystemEngine {
 
     // The body tree: the Sun at the origin, then the eight planets (Earth
     // carrying the Moon as a child) — each a self-positioning, self-updating
-    // entity. Annotations (Lagrange, trajectory objects) are still added the old
-    // flat way; later slices move them too.
+    // entity. Lagrange points and trajectory objects join later, via
+    // addLagrangePoints / addTrajectoryObject, as more entities.
     this.addEntity(new SunEntity(this.sizeModel, this.picks));
     const { bodies, earth } = createPlanetBodies({
       sizeModel: this.sizeModel,
@@ -182,12 +153,6 @@ export class SolarSystemEngine {
     this.pipeline = new BloomPipeline(this.renderer, this.scene, this.camera, width, height);
 
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
-  }
-
-  /** Track a disposable resource for teardown, and return it for convenience. */
-  private track<T extends { dispose: () => void }>(resource: T): T {
-    this.disposables.push(resource);
-    return resource;
   }
 
   /** Parent an entity under the solar-system group and enlist it for per-frame updates. */
@@ -230,122 +195,15 @@ export class SolarSystemEngine {
   }
 
   /**
-   * Add a custom object placed by an explicit trajectory (heliocentric ecliptic
-   * AU points). Draws the full path and a marker that rides along it, its
-   * position interpolated from the current simulation time.
+   * Add a custom object placed by an explicit trajectory (a spacecraft, comet,
+   * …). It becomes a body-tree entity that draws the full path and rides a marker
+   * along it, interpolated from the current simulation time — see TrajectoryEntity.
    */
   addTrajectoryObject(config: TrajectoryObjectConfig): void {
-
-    let geometry, material, marker;
-
-    const points: WorldPoint[] = config.points.map((p) => ({
-      t: p.timeMs,
-      pos: eclipticToWorld(p.position),
-    }));
-
-    const pathPoints = points.map((p) => new THREE.Vector3(...p.pos));
-    const pathGeometry = this.track(new THREE.BufferGeometry().setFromPoints(pathPoints));
-    const pathMaterial = this.track(
-      new THREE.LineBasicMaterial({ color: config.pathColor ?? config.color }),
-    );
-    this.scene.add(new THREE.Line(pathGeometry, pathMaterial));
-
-
-    if(!config.object){
-      geometry = new THREE.SphereGeometry(config.radius ?? 0.04, 16, 16);
-      material = new THREE.MeshBasicMaterial({ color: config.color });
-      const markerGeometry = this.track(geometry);
-      const markerMaterial = this.track(material);
-      marker = new THREE.Mesh(markerGeometry, markerMaterial);
-    }else{
-      marker = config.object;
-    }
-
-
-
-    this.scene.add(marker);
-    this.picks.addPickable(marker);
-    if (config.label) {
-      const cssColor = '#' + config.color.toString(16).padStart(6, '0');
-      addLabel(marker, config.label, cssColor);
-    }
-
-    const handle: TrajectoryHandle = {
-      marker,
-      points,
-      // A sphere marker has no meaningful heading; only orient custom objects.
-      orient: Boolean(config.orientToTrajectory && config.object),
-      baseQuat: marker.quaternion.clone(),
-    };
-    this.updateTrajectoryMarker(handle);
-    this.trajectories.push(handle);
-  }
-
-  /** Position a marker at the simulation time by interpolating its points. */
-  private updateTrajectoryMarker(handle: TrajectoryHandle): void {
-    const s = handle.points;
-    if (s.length === 0) return;
-
-    // Resolve the segment [lo, hi] and interpolation fraction for the current
-    // time. The ends are clamped to the known ephemeris rather than
-    // extrapolated; the adjacent segment still gives a heading there.
-    let lo: number;
-    let hi: number;
-    if (this.simTimeMs <= s[0].t) {
-      lo = 0;
-      hi = Math.min(1, s.length - 1);
-      handle.marker.position.set(...s[0].pos);
-    } else if (this.simTimeMs >= s[s.length - 1].t) {
-      hi = s.length - 1;
-      lo = Math.max(0, hi - 1);
-      handle.marker.position.set(...s[hi].pos);
-    } else {
-      // Binary search for the segment straddling the current time.
-      lo = 0;
-      hi = s.length - 1;
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >> 1;
-        if (s[mid].t <= this.simTimeMs) lo = mid;
-        else hi = mid;
-      }
-      const a = s[lo];
-      const b = s[hi];
-      const f = (this.simTimeMs - a.t) / (b.t - a.t || 1);
-      handle.marker.position.set(
-        a.pos[0] + (b.pos[0] - a.pos[0]) * f,
-        a.pos[1] + (b.pos[1] - a.pos[1]) * f,
-        a.pos[2] + (b.pos[2] - a.pos[2]) * f,
-      );
-    }
-
-    if (handle.orient && hi !== lo) {
-      this.orientMarkerAlongTrajectory(handle, s[lo].pos, s[hi].pos);
-    }
-  }
-
-  /**
-   * Aim the marker's nose down the trajectory. The chord of the current segment
-   * (from → to, world AU) is the direction of travel; we build a rotation whose
-   * +Z axis points along it, using ecliptic north (+Y) as the up reference so
-   * the model doesn't roll unpredictably. The marker's base rotation is then
-   * composed back in, so a caller-set nose/roll trim survives.
-   */
-  private orientMarkerAlongTrajectory(
-    handle: TrajectoryHandle,
-    from: [number, number, number],
-    to: [number, number, number],
-  ): void {
-    _dir.set(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
-    // Two coincident points give no heading; keep the previous orientation.
-    if (_dir.lengthSq() < 1e-20) return;
-    _dir.normalize();
-
-    // Matrix4.lookAt(eye, target, up) sets +Z = normalize(eye - target); with
-    // eye on the travel direction and target at the origin, +Z lands on the
-    // tangent — matching Object3D.lookAt's "+Z toward target" for non-cameras.
-    _lookMatrix.lookAt(_dir, _origin, _worldUp);
-    _alignQuat.setFromRotationMatrix(_lookMatrix);
-    handle.marker.quaternion.copy(_alignQuat).multiply(handle.baseQuat);
+    const entity = new TrajectoryEntity(config, this.picks);
+    this.addEntity(entity);
+    // Place it now so it's correct before the first frame.
+    entity.update(this.frameContext(0));
   }
 
   /**
@@ -365,11 +223,10 @@ export class SolarSystemEngine {
   /** Jump the simulation to a specific instant. */
   setDate(date: Date): void {
     this.simTimeMs = date.getTime();
-    // dt 0: scrubbing repositions every body (and its Lagrange attachment) but
-    // doesn't advance ambient animation.
+    // dt 0: scrubbing repositions every entity (bodies, their attachments, the
+    // spacecraft) but doesn't advance ambient animation.
     const ctx = this.frameContext(0);
     for (const entity of this.entities) entity.update(ctx);
-    for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
   }
 
   /** Current simulation instant. */
@@ -403,11 +260,11 @@ export class SolarSystemEngine {
 
       // timeScale is simulated seconds per real second; dt is real seconds.
       this.simTimeMs += dt * this.timeScale * 1000;
-      // Advance every body (Sun, planets, Moon) — each positions, spins, floors,
-      // refills its trail and updates its attachments (Earth's Lagrange group).
+      // Advance every entity — the Sun, the planets (each positions, spins,
+      // floors, trails and updates its attachments), and the spacecraft. That's
+      // the whole scene: the engine no longer touches any body directly.
       const ctx = this.frameContext(dt);
       for (const entity of this.entities) entity.update(ctx);
-      for (const handle of this.trajectories) this.updateTrajectoryMarker(handle);
 
       // Drive the camera: follow any focused body, settle the controls, retune
       // the clip planes. Bodies floored themselves in their own update above.
