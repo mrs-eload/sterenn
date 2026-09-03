@@ -28,7 +28,8 @@ export class SunEntity implements SceneEntity {
     const radius = drawnRadius(SUN_RADIUS_AU, sizeModel);
     this.handle = createSun(radius);
     this.object3D = this.handle.group;
-    addLabel(this.handle.group, 'Sun', '#ffcc66');
+    // The group is the pick/pivot root, so the label selects the Sun on click.
+    addLabel(this.handle.group, 'Sun', '#ffcc66', this.handle.group);
     // Put the disc and its corona on the bloom layer so they glow. enable() keeps
     // layer 0 on, so they still render in the final scene.
     this.handle.group.traverse((o) => o.layers.enable(BLOOM_LAYER));

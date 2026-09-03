@@ -49,7 +49,8 @@ export class LagrangeGroup implements SceneEntity {
       this.object3D.add(mesh);
       picks.addPickable(mesh);
       this.markers.push({ name, mesh });
-      if (config.labels) addLabel(mesh, name, cssColor);
+      // The mesh is the pick/pivot root, so its label selects it on click.
+      if (config.labels) addLabel(mesh, name, cssColor, mesh);
     }
   }
 

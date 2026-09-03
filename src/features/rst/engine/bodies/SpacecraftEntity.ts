@@ -18,14 +18,30 @@ const _alignQuat = new THREE.Quaternion();
 // samples read as a polygon. We subdivide every segment with a Catmull-Rom spline
 // into this many pieces so the drawn path is a smooth curve, always.
 const PATH_SUBDIVISIONS = 24;
-// Dash+gap pairs across the WHOLE path; the future (dashed) slice shows its share.
-// Expressed as a count so the dash length scales with the path, not the zoom-less
-// absolute AU (a halo and an interplanetary cruise both get a sensible dash).
+// Default dash+gap pairs across the WHOLE path; the future (dashed) slice shows its
+// share. Expressed as a count so the dash length scales with the path, not the
+// zoom-less absolute AU. This default suits a short (~month) halo; a much longer
+// path would get proportionally longer dashes, so callers override it via
+// config.dash.pairs (see TrajectoryObjectConfig) — JWST needs ~66× this.
 const PATH_DASH_PAIRS = 100;
+// Default gap/dash ratio (1 = equal dash and gap), overridable via config.dash.
+const PATH_DASH_GAP_RATIO = 1;
 // The flown line's oldest end fades in over this fraction of the path (a per-vertex
 // brightness ramp toward black), so the track eases out of the dark instead of
 // popping into existence at the first sample.
 const PATH_START_FADE_FRACTION = 0.06;
+
+// Beyond this much time from the live clock — in EITHER direction — the path is
+// dimmed to barely visible, so a decade-long trajectory (JWST's years of L2 halo
+// loops) collapses to a readable ~2-year window around 'now' instead of an opaque
+// tangle. A short craft (RST's ~month) sits entirely inside the window, unchanged.
+const PATH_TIME_WINDOW_MS = 365.25 * 24 * 3600 * 1000; // 1 year, full brightness
+// The fade eases from full to PATH_FAR_BRIGHTNESS across this band past the window,
+// so the 1-year boundary is a soft ramp, not a hard edge.
+const PATH_TIME_FADE_MS = 0.25 * PATH_TIME_WINDOW_MS;
+// Brightness (0..1, multiplied onto the line colour) of the far, out-of-window
+// path. Low enough to read as "barely there" over the starfield, not fully gone.
+const PATH_FAR_BRIGHTNESS = 0.05;
 
 interface WorldPoint {
   t: number;
@@ -47,21 +63,34 @@ function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): 
 }
 
 /**
- * A per-vertex (r,g,b) brightness ramp for the flown line: 0 at the oldest vertex,
- * eased up to 1 over the first PATH_START_FADE_FRACTION of the curve, then flat.
- * Multiplied onto the line's colour, it fades the start out into the black sky.
+ * A per-vertex brightness ramp for the flown line: 0 at the oldest vertex, eased up
+ * to 1 over the first PATH_START_FADE_FRACTION of the curve, then flat. One value
+ * per vertex (not yet expanded to r,g,b); the per-frame dimming multiplies the
+ * clock-distance fade onto it and writes the final colours. Multiplied onto the
+ * line's colour, it fades the start out into the black sky.
  */
-function startFadeColors(count: number): Float32Array {
-  const colors = new Float32Array(count * 3);
+function startFadeBrightness(count: number): Float32Array {
+  const brightness = new Float32Array(count);
   const fadeEnd = Math.max(1, Math.floor(count * PATH_START_FADE_FRACTION));
   for (let i = 0; i < count; i += 1) {
     const t = Math.min(1, i / fadeEnd);
-    const f = t * t * (3 - 2 * t); // smoothstep, so the fade-in has no hard corners
-    colors[i * 3] = f;
-    colors[i * 3 + 1] = f;
-    colors[i * 3 + 2] = f;
+    brightness[i] = t * t * (3 - 2 * t); // smoothstep, so the fade-in has no hard corners
   }
-  return colors;
+  return brightness;
+}
+
+/**
+ * Brightness (0..1) for a path vertex at time `vertexTimeMs`, given the live clock
+ * `simTimeMs`: full inside PATH_TIME_WINDOW_MS of now, then smoothstepped down to
+ * PATH_FAR_BRIGHTNESS across the fade band, flat beyond. Symmetric — the deep past
+ * and far future both dim — so only the ~2-year span around now reads clearly.
+ */
+function clockDistanceBrightness(vertexTimeMs: number, simTimeMs: number): number {
+  const d = Math.abs(vertexTimeMs - simTimeMs);
+  if (d <= PATH_TIME_WINDOW_MS) return 1;
+  const f = Math.min(1, (d - PATH_TIME_WINDOW_MS) / PATH_TIME_FADE_MS);
+  const eased = f * f * (3 - 2 * f); // smoothstep
+  return 1 + (PATH_FAR_BRIGHTNESS - 1) * eased; // 1 → PATH_FAR_BRIGHTNESS
 }
 
 /**
@@ -105,6 +134,17 @@ export class SpacecraftEntity implements SceneEntity {
   // ranges — solid up to the craft, dashed beyond — are retuned every frame.
   private readonly flownGeometry: THREE.BufferGeometry | null;
   private readonly predictedGeometry: THREE.BufferGeometry | null;
+  // Per-vertex colour buffers, rewritten each frame by the clock-distance dimming
+  // (see updatePathDimming). The flown colour also carries the static start-fade,
+  // baked in via flownStartFade; the predicted line is dimmed the same way.
+  private readonly flownColorAttr: THREE.BufferAttribute | null;
+  private readonly predictedColorAttr: THREE.BufferAttribute | null;
+  // The flown line's static start-fade brightness (one value per vertex), the base
+  // the per-frame clock-distance fade multiplies onto.
+  private readonly flownStartFade: Float32Array | null;
+  // Clock time the colour buffers were last rebuilt for, so a still clock (paused)
+  // doesn't repeat the O(n) rewrite every frame. NaN forces the first pass to run.
+  private lastDimSimTimeMs = Number.NaN;
   // Sim time (ms) at each dense curve vertex, ascending — for the split search.
   private readonly curveTimes: Float64Array;
   /** Aim the marker's +Z nose down the trajectory tangent each frame. */
@@ -140,11 +180,15 @@ export class SpacecraftEntity implements SceneEntity {
     if (curve.count >= 2) {
       this.flownGeometry = new THREE.BufferGeometry();
       this.flownGeometry.setAttribute('position', new THREE.BufferAttribute(curve.positions, 3));
-      // Per-vertex brightness ramp fading the oldest end (vertex 0, always the drawn
-      // start) up from black, so the flown track eases out of the dark. vertexColors
-      // multiplies this onto the material colour; toward black it vanishes over the
-      // black sky, and blooms proportionally less — a soft fade-in, not a hard start.
-      this.flownGeometry.setAttribute('color', new THREE.BufferAttribute(startFadeColors(curve.count), 3));
+      // Per-vertex colour, rewritten each frame (updatePathDimming): the static
+      // start-fade (oldest vertex up from black, so the track eases out of the dark)
+      // times the clock-distance fade (out-of-window path dimmed to barely visible).
+      // vertexColors multiplies it onto the material colour; toward black the line
+      // vanishes over the sky and blooms proportionally less — no hard edges.
+      this.flownStartFade = startFadeBrightness(curve.count);
+      this.flownColorAttr = new THREE.BufferAttribute(new Float32Array(curve.count * 3), 3);
+      this.flownColorAttr.setUsage(THREE.DynamicDrawUsage); // rewritten every frame
+      this.flownGeometry.setAttribute('color', this.flownColorAttr);
       const flownMaterial = new THREE.LineBasicMaterial({
         color: pathColor,
         vertexColors: true,
@@ -159,17 +203,29 @@ export class SpacecraftEntity implements SceneEntity {
 
       // The dashed, dimmer prediction. Dash length is a fixed fraction of the whole
       // path so it reads consistently as the flown/predicted boundary sweeps along.
-      const dash = (curve.length || 1) / (PATH_DASH_PAIRS * 2);
+      // `pairs` sets how many dash+gap pairs span the path (caller-tunable, so a
+      // long path can keep a sensible absolute dash); `gapRatio` splits each pair.
+      const dashPairs = config.dash?.pairs ?? PATH_DASH_PAIRS;
+      const gapRatio = config.dash?.gapRatio ?? PATH_DASH_GAP_RATIO;
+      const pairLength = (curve.length || 1) / dashPairs;
+      const dashSize = pairLength / (1 + gapRatio);
+      const gapSize = dashSize * gapRatio;
       this.predictedGeometry = new THREE.BufferGeometry();
       this.predictedGeometry.setAttribute('position', new THREE.BufferAttribute(curve.positions, 3));
       this.predictedGeometry.setAttribute('lineDistance', new THREE.BufferAttribute(curve.distances, 1));
+      // Same per-frame clock-distance dimming as the flown line (no start-fade), so
+      // predicted loops more than a year out fade to barely visible too.
+      this.predictedColorAttr = new THREE.BufferAttribute(new Float32Array(curve.count * 3), 3);
+      this.predictedColorAttr.setUsage(THREE.DynamicDrawUsage); // rewritten every frame
+      this.predictedGeometry.setAttribute('color', this.predictedColorAttr);
       const predictedMaterial = new THREE.LineDashedMaterial({
         color: pathColor,
+        vertexColors: true,
         transparent: true,
         opacity: 0.55, // a prediction reads as fainter than the flown track
         depthWrite: false,
-        dashSize: dash,
-        gapSize: dash,
+        dashSize,
+        gapSize,
       });
       this.disposables.push(this.predictedGeometry, predictedMaterial);
       const predicted = new THREE.Line(this.predictedGeometry, predictedMaterial);
@@ -179,6 +235,9 @@ export class SpacecraftEntity implements SceneEntity {
     } else {
       this.flownGeometry = null;
       this.predictedGeometry = null;
+      this.flownColorAttr = null;
+      this.predictedColorAttr = null;
+      this.flownStartFade = null;
     }
 
     // The marker: a caller-supplied model, or a default sphere we own and dispose.
@@ -195,7 +254,10 @@ export class SpacecraftEntity implements SceneEntity {
 
     if (config.label) {
       const cssColor = '#' + config.color.toString(16).padStart(6, '0');
-      this.label = addLabel(this.placement, config.label, cssColor);
+      // The label rides the placement, but the marker is the registered pick/pivot
+      // root — so pass the marker as the pivot, and clicking the label selects the
+      // craft exactly as clicking the model does.
+      this.label = addLabel(this.placement, config.label, cssColor, this.marker);
     } else {
       this.label = null;
     }
@@ -306,6 +368,43 @@ export class SpacecraftEntity implements SceneEntity {
     if (this.orient && hi !== lo) this.orientAlong(s[lo].pos, s[hi].pos);
 
     this.updatePathSplit(simTimeMs);
+    this.updatePathDimming(simTimeMs);
+  }
+
+  /**
+   * Fade the path by distance in time from the live clock: vertices within a year
+   * of now stay full brightness, everything further eases down to barely visible
+   * (see clockDistanceBrightness). Rewrites both colour buffers in place — cheap
+   * enough at line resolution, and skipped entirely when the clock hasn't moved
+   * (paused), which is the common case. The flown line also keeps its start-fade.
+   */
+  private updatePathDimming(simTimeMs: number): void {
+    const flownAttr = this.flownColorAttr;
+    const predictedAttr = this.predictedColorAttr;
+    const startFade = this.flownStartFade;
+    if (!flownAttr || !predictedAttr || !startFade) return;
+    // The dimming depends only on the clock; a still clock needs no rewrite.
+    if (simTimeMs === this.lastDimSimTimeMs) return;
+    this.lastDimSimTimeMs = simTimeMs;
+
+    const times = this.curveTimes;
+    const n = times.length;
+    const flown = flownAttr.array as Float32Array;
+    const predicted = predictedAttr.array as Float32Array;
+    for (let i = 0; i < n; i += 1) {
+      const b = clockDistanceBrightness(times[i], simTimeMs);
+      const j = i * 3;
+      // Flown: start-fade × clock-distance fade. Predicted: clock-distance only.
+      const fb = startFade[i] * b;
+      flown[j] = fb;
+      flown[j + 1] = fb;
+      flown[j + 2] = fb;
+      predicted[j] = b;
+      predicted[j + 1] = b;
+      predicted[j + 2] = b;
+    }
+    flownAttr.needsUpdate = true;
+    predictedAttr.needsUpdate = true;
   }
 
   /**

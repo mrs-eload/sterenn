@@ -12,6 +12,8 @@ import type { Body } from './bodies/Body';
 import { LagrangeGroup } from './bodies/LagrangeGroup';
 import type { LagrangeConfig } from './bodies/LagrangeGroup';
 import { SpacecraftEntity } from './bodies/SpacecraftEntity';
+import { LABEL_SELECT_EVENT } from './labels';
+import type { LabelSelectDetail } from './labels';
 import type { EngineOptions, TrajectoryObjectConfig, Vec3 } from './types';
 
 /**
@@ -51,9 +53,10 @@ export class SolarSystemEngine {
   // Every planet body by name, so a spacecraft can name the body it orbits and be
   // parented under it (see setSpacecraft).
   private readonly bodiesByName = new Map<string, Body>();
-  // The single spacecraft entity, kept so it can be rebuilt/replaced without
-  // touching the rest of the scene. Null until setSpacecraft is first called.
-  private spacecraft: SpacecraftEntity | null = null;
+  // Spacecraft entities by id, so several trajectory objects (RST, JWST, …) can
+  // share the scene. Keyed by config.id so each can be rebuilt/replaced on its
+  // own without touching the others. Empty until setSpacecraft is first called.
+  private readonly spacecraftById = new Map<string, SpacecraftEntity>();
   // Geometries/materials we create and must dispose to free GPU memory.
   private readonly disposables: Array<{ dispose: () => void }> = [];
 
@@ -160,8 +163,20 @@ export class SolarSystemEngine {
 
     this.pipeline = new BloomPipeline(this.renderer, this.scene, this.camera, width, height);
 
+    // Clicking a label selects its body: the label bubbles a select event up
+    // through the overlay to the container, and we hand its pivot to the camera —
+    // the same lock a direct click produces. Listening on the container (not the
+    // canvas) catches it, since labels live in the sibling CSS2D overlay.
+    this.container.addEventListener(LABEL_SELECT_EVENT, this.onLabelSelect);
+
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
   }
+
+  /** Route a label click to the camera, focusing the body the label names. */
+  private readonly onLabelSelect = (event: Event): void => {
+    const { pivot } = (event as CustomEvent<LabelSelectDetail>).detail;
+    this.cameraController.focusObject(pivot);
+  };
 
   /** Parent an entity under the solar-system group and enlist it for per-frame updates. */
   private addEntity(entity: SceneEntity): void {
@@ -203,16 +218,17 @@ export class SolarSystemEngine {
   }
 
   /**
-   * Set (or replace) the spacecraft placed by an explicit trajectory. It becomes
-   * a body-tree entity that draws the full path and rides a marker along it,
+   * Add (or replace) a spacecraft placed by an explicit trajectory. It becomes a
+   * body-tree entity that draws the full path and rides a marker along it,
    * interpolated from the current simulation time — see SpacecraftEntity.
    *
    * Its trajectory points are offsets from the body named by `config.parentBody`,
    * so the craft is parented under that body's position and its path rides along,
-   * like a moon (RST's L2 halo loops around Earth and travels with it). Calling
-   * this again rebuilds only the spacecraft, reusing the caller's model object —
-   * the old entity's own geometry is disposed and its marker/label torn down, but
-   * the shared model isn't. Throws if `parentBody` names no known body.
+   * like a moon (RST's and JWST's L2 halos loop around Earth and travel with it).
+   * Several craft coexist, keyed by `config.id`; calling this with an id already
+   * present rebuilds only that one, reusing the caller's model object — the old
+   * entity's own geometry is disposed and its marker/label torn down, but the
+   * shared model isn't. Throws if `parentBody` names no known body.
    */
   setSpacecraft(config: TrajectoryObjectConfig): void {
     const parent = this.bodiesByName.get(config.parentBody);
@@ -222,12 +238,13 @@ export class SolarSystemEngine {
       );
     }
 
-    if (this.spacecraft) {
-      const idx = this.entities.indexOf(this.spacecraft);
+    const existing = this.spacecraftById.get(config.id);
+    if (existing) {
+      const idx = this.entities.indexOf(existing);
       if (idx >= 0) this.entities.splice(idx, 1);
-      this.spacecraft.object3D.parent?.remove(this.spacecraft.object3D);
-      this.spacecraft.dispose();
-      this.spacecraft = null;
+      existing.object3D.parent?.remove(existing.object3D);
+      existing.dispose();
+      this.spacecraftById.delete(config.id);
     }
 
     const entity = new SpacecraftEntity(config, this.picks);
@@ -237,7 +254,7 @@ export class SolarSystemEngine {
     // added first), so its world transform is current when the marker is placed.
     parent.addRider(entity.object3D);
     this.entities.push(entity);
-    this.spacecraft = entity;
+    this.spacecraftById.set(config.id, entity);
     // Place it now so it's correct before the first frame.
     entity.update(this.frameContext(0));
   }
@@ -336,6 +353,7 @@ export class SolarSystemEngine {
   dispose(): void {
     this.disposed = true;
     this.stop();
+    this.container.removeEventListener(LABEL_SELECT_EVENT, this.onLabelSelect);
     // The controller owns the OrbitControls and the pointer/wheel listeners.
     this.cameraController.dispose();
     // The pipeline owns its composers/render targets and the dark material.

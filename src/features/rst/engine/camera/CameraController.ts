@@ -178,11 +178,28 @@ export class CameraController {
     this.pointerDownScreen = null;
     if (!wasClick) return;
     // A bare left click focuses the body under the cursor (empty space releases
-    // any focus). Arm the one-shot centre slew and re-seed the drift tracker so
-    // updateFocusFollow brings it to screen-centre, then follows its motion.
-    this.focusedBody = this.bodyAtPointer(event);
+    // any focus).
+    this.setFocusedObject(this.bodyAtPointer(event));
+  }
+
+  /**
+   * Focus an object by reference, exactly as a click on it would — the pivot for
+   * rotation and zoom, slewed to screen-centre then followed. This is the seam a
+   * label click uses: the label names its body's pivot root and we lock onto it.
+   */
+  focusObject(object: THREE.Object3D): void {
+    this.setFocusedObject(object);
+  }
+
+  /**
+   * Lock focus onto `object` (or release it if null): arm the one-shot centre
+   * slew and re-seed the drift tracker so updateFocusFollow brings it to
+   * screen-centre, then follows its motion. Shared by click and label select.
+   */
+  private setFocusedObject(object: THREE.Object3D | null): void {
+    this.focusedBody = object;
     this.focusPrevPos = null;
-    this.centeringFocus = this.focusedBody !== null;
+    this.centeringFocus = object !== null;
   };
 
   /** The pickable object under a pointer event, resolved to its pivot root, or null. */

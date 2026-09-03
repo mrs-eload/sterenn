@@ -154,8 +154,9 @@ runs the loop). The camera depends on bodies only through `PickRegistry`.
 - **A spacecraft / table-driven object:** `engine.setSpacecraft(config)`. Its
   `config.parentBody` names the body it orbits (e.g. `'Earth'`); the points are
   offsets from that body, so it's parented under it and its path rides along like a
-  moon (RST's L2 halo travels with Earth). Call it again to replace the spacecraft;
-  only that entity is rebuilt.
+  moon (RST's and JWST's L2 halos travel with Earth). Several craft coexist, keyed
+  by `config.id`; call it again with the same id to replace just that one, and only
+  that entity is rebuilt.
 
 Whichever it is, `SolarSystemEngine.ts` is not touched.
 

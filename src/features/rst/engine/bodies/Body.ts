@@ -97,7 +97,9 @@ export class Body implements SceneEntity {
     this.placement.add(this.visual.object);
     // The label rides BodyPlacement — the body's position — so it follows the
     // body without inheriting the visual's tilt/spin or the pixel-floor scale.
-    addLabel(this.placement, options.label, options.labelColor);
+    // BodyPlacement is also the pick/pivot root, so clicking the label selects
+    // this body exactly as clicking the globe does.
+    addLabel(this.placement, options.label, options.labelColor, this.placement);
 
     this.orbitTrail = options.orbitTrail ? new OrbitTrail(options.orbitTrail) : null;
     // The trail is in the PARENT frame, so it hangs off the SystemGroup (which

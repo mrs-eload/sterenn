@@ -9,17 +9,73 @@ import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
+// Trajectory files, one geocentric Horizons vector table per craft. Both are
+// Sun–Earth L2 halos, so their points are offsets from Earth and the engine
+// parents each under Earth. Exported so MissionDashboard fetches the same URLs.
+export const RST_TRAJECTORY_URL = 'horizons/rst/RST_EPH_PRED_2026243_2026271_02_GEO.txt';
+export const JWST_TRAJECTORY_URL = 'horizons/jwst/jwst_geo.txt';
+
 interface SolarSystemMapProps {
-  trajectory: FullHorizonsPayload;
+  /** Parsed trajectory per craft, keyed by the SPACECRAFT descriptor id. */
+  trajectories: Record<string, FullHorizonsPayload>;
 }
 
-// The body RST orbits — its Horizons table is Earth-centred, so its points are
-// offsets from Earth and the engine parents it under Earth.
-const RST_PARENT_BODY = 'Earth';
+/** Everything static about one craft: which body it orbits, its model, its look. */
+interface SpacecraftSource {
+  /** Matches the key in the `trajectories` prop. */
+  id: string;
+  /** Body whose L2 the craft orbits — its Horizons center, so its parent here. */
+  parentBody: string;
+  modelUrl: string;
+  /**
+   * Native model units → AU. Both models are drawn far larger than life so the
+   * craft are visible against their orbits; the two scales are tuned to read at
+   * a consistent apparent size (RST_v4 is ~344 units, JWST ~21 metric units).
+   */
+  modelScale: number;
+  /**
+   * Nose-trim: euler angles bringing the model's forward axis onto +Z, so the
+   * engine's tangent orientation (orientToTrajectory) composes on top correctly.
+   */
+  calibration: [number, number, number];
+  /** Marker + default path colour (0xRRGGBB). */
+  color: number;
+  /** Pick/label marker radius in AU. */
+  radius: number;
+  label: string;
+  /** Dashing of the predicted path — scale `pairs` with path length (see engine). */
+  dash?: { pairs?: number; gapRatio?: number };
+}
 
-// The RST model's nose-trim: euler angles that bring its forward axis onto +Z, so
-// the engine's tangent orientation composes on top correctly.
-const RST_CALIBRATION: [number, number, number] = [0, -1.6 + Math.PI, 0];
+const SPACECRAFT: SpacecraftSource[] = [
+  {
+    id: 'rst',
+    parentBody: 'Earth',
+    modelUrl: '/sterenn/horizons/rst/model/RST_v4.glb',
+    modelScale: 1e-7,
+    calibration: [0, -1.6 + Math.PI, 0],
+    color: 0xffffff,
+    radius: 0.03,
+    label: 'RST',
+  },
+  {
+    id: 'jwst',
+    parentBody: 'Earth',
+    modelUrl: '/sterenn/horizons/jwst/model/JWST.glb',
+    // JWST.glb is modelled in metres (~21 m sunshield); 1.6e-6 brings its drawn
+    // size onto RST's so the two read at a consistent (exaggerated) scale. The
+    // scale and calibration are eyeball starting values — retune in the app.
+    modelScale: 1.6e-6,
+    calibration: [0, 0, 0],
+    color: 0xffd27f, // warm gold, to tell it apart from RST's white
+    radius: 0.03,
+    label: 'JWST',
+    // JWST's path is ~66× RST's arc length (a decade of L2 loops vs a month), so it
+    // needs ~66× the dash pairs to keep the same absolute dash size — otherwise the
+    // dashes stretch into long solid strokes.
+    dash: { pairs: 6600 },
+  },
+];
 
 // The speed slider is a signed, continuous "shuttle": position 0 is the centre
 // (real time), the right half accelerates forward, the left half runs backward,
@@ -85,10 +141,10 @@ function formatSpeed(pos: number, playing: boolean): string {
 }
 
 /**
- * Turn a Horizons vector table into engine trajectory points. Both RST files are
- * ecliptic-of-J2000, in km — the engine's native frame — so we only convert km→AU
- * and parse the (already ISO) timestamp to epoch ms. Whether those km are relative
- * to the Sun or to Earth is the caller's `frame`; the numbers convert identically.
+ * Turn a Horizons vector table into engine trajectory points. The RST and JWST
+ * files are all ecliptic-of-J2000, in km — the engine's native frame — so we only
+ * convert km→AU and parse the (already ISO) timestamp to epoch ms. Whether those km
+ * are relative to the Sun or to Earth is the file's center; they convert identically.
  */
 function toTrajectoryPoints(data: FullHorizonsPayload): TrajectoryPoint[] {
   return data.trajectory.map((pt) => ({
@@ -97,7 +153,7 @@ function toTrajectoryPoints(data: FullHorizonsPayload): TrajectoryPoint[] {
   }));
 }
 
-export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectory }) => {
+export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectories }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SolarSystemEngine | null>(null);
   const teardownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,29 +203,38 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectory }) =>
       // (~0.008 AU) clear of Earth's ~0.0065 AU surface.
       engine.addLagrangePoints({ names: ['L2', 'L3'], radius: 0.002, labels: true });
 
+      // Load each craft's model and add it as a trajectory object. The loads are
+      // async and independent; setSpacecraft keys by id, so RST and JWST coexist
+      // and either can arrive first — see SolarSystemEngine.setSpacecraft.
       const loader = new GLTFLoader();
       const dracoLoader = new DRACOLoader();
-      loader.setDRACOLoader( dracoLoader );
-      loader.load("/sterenn/horizons/rst/model/RST_v4.glb", (glb: GLTF)=> {
-        const rstSpacecraft = glb.scene.clone();
-        rstSpacecraft.scale.set(.0000001,.0000001,.0000001)
-        // Nose-trim base; the engine aims the nose down the trajectory on top of it.
-        rstSpacecraft.rotation.set(...RST_CALIBRATION);
-        // RST's points are offsets from Earth, so it's parented under Earth and its
-        // L2 halo rides along — see SolarSystemEngine.setSpacecraft.
-        engine.setSpacecraft({
-          id: 'rst',
-          parentBody: RST_PARENT_BODY,
-          color: 0xffffff,
-          radius: 0.03,
-          points: toTrajectoryPoints(trajectory),
-          object: rstSpacecraft,
-          orientToTrajectory: true,
-          label: 'RST',
+      loader.setDRACOLoader(dracoLoader);
+      for (const craft of SPACECRAFT) {
+        const data = trajectories[craft.id];
+        if (!data) continue; // no trajectory for this craft; skip it
+        loader.load(craft.modelUrl, (glb: GLTF) => {
+          const model = glb.scene.clone();
+          model.scale.setScalar(craft.modelScale);
+          // Nose-trim base; the engine aims the nose down the trajectory on top of it.
+          model.rotation.set(...craft.calibration);
+          // Points are offsets from Earth, so the craft is parented under Earth and
+          // its L2 halo rides along — see SolarSystemEngine.setSpacecraft.
+          engine.setSpacecraft({
+            id: craft.id,
+            parentBody: craft.parentBody,
+            color: craft.color,
+            radius: craft.radius,
+            points: toTrajectoryPoints(data),
+            object: model,
+            orientToTrajectory: true,
+            label: craft.label,
+            dash: craft.dash,
+          });
         });
-        setSimDate(engine.getDate());
-      });
+      }
       engine.start();
+      // Show the clock immediately, regardless of when the models finish loading.
+      setSimDate(engine.getDate());
       engineRef.current = engine;
     }
     if (teardownTimer.current) {
@@ -191,7 +256,7 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectory }) =>
         teardownTimer.current = null;
       }, 0);
     };
-  }, [trajectory]);
+  }, [trajectories]);
 
   const applyRate = (nextPlaying: boolean, nextPos: number): void => {
     engineRef.current?.setTimeScale(nextPlaying ? rateFromPos(nextPos) : 0);

@@ -36,6 +36,19 @@ export interface TrajectoryObjectConfig {
   radius?: number;
   /** Optional distinct colour for the drawn path line. */
   pathColor?: number;
+  /**
+   * Dashing of the predicted (future) path line. The dash length is a fraction of
+   * the WHOLE path, so its absolute size scales with how long the trajectory is —
+   * fine for a short halo, but a decade-long path (JWST is ~66× RST's arc length)
+   * gets dashes ~66× longer that read as solid strokes. Raise `pairs` in step with
+   * the path length to keep the dash a sensible absolute size. Omitted → defaults.
+   */
+  dash?: {
+    /** Dash+gap pairs across the whole path. Higher = shorter dashes. Default 100. */
+    pairs?: number;
+    /** gapSize / dashSize; 1 = equal dash and gap. Default 1. */
+    gapRatio?: number;
+  };
   /** Points ordered ascending by time. */
   points: TrajectoryPoint[];
 
