@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTrajectory } from '../hooks/useTrajectory.ts';
-import { SolarSystemMap, RST_TRAJECTORY_URL, JWST_TRAJECTORY_URL } from './SolarSystemMap';
+import { SolarSystemMap, RST_TRAJECTORY_URL, JWST_TRAJECTORY_URL, HST_TRAJECTORY_URL } from './SolarSystemMap';
 
 export const MissionDashboard: React.FC = () => {
   // One geocentric Horizons file per craft; both are L2 halos parented under Earth.
@@ -12,7 +12,7 @@ export const MissionDashboard: React.FC = () => {
   const trajectories = useMemo(
     () =>
       rst.trajectory && jwst.trajectory
-        ? { rst: rst.trajectory, jwst: jwst.trajectory }
+        ? { rst: rst.trajectory, jwst: jwst.trajectory}
         : null,
     [rst.trajectory, jwst.trajectory],
   );

@@ -12,7 +12,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 // Trajectory files, one geocentric Horizons vector table per craft. Both are
 // Sun–Earth L2 halos, so their points are offsets from Earth and the engine
 // parents each under Earth. Exported so MissionDashboard fetches the same URLs.
-export const RST_TRAJECTORY_URL = 'horizons/rst/RST_EPH_PRED_2026243_2026271_02_GEO.txt';
+export const RST_TRAJECTORY_URL = 'horizons/rst/rst_geo.txt';
 export const JWST_TRAJECTORY_URL = 'horizons/jwst/jwst_geo.txt';
 
 interface SolarSystemMapProps {
@@ -70,10 +70,6 @@ const SPACECRAFT: SpacecraftSource[] = [
     color: 0xffd27f, // warm gold, to tell it apart from RST's white
     radius: 0.03,
     label: 'JWST',
-    // JWST's path is ~66× RST's arc length (a decade of L2 loops vs a month), so it
-    // needs ~66× the dash pairs to keep the same absolute dash size — otherwise the
-    // dashes stretch into long solid strokes.
-    dash: { pairs: 6600 },
   },
 ];
 
