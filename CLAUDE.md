@@ -85,7 +85,7 @@ discriminator is `type`. Existing code is not renamed.
 Run from the repo root:
 
 ```bash
-npm run dev           # build shared, then the Vite dev server (http://localhost:5173/sterenn/)
+npm run dev           # build shared, then the Vite dev server (http://localhost:5173/)
 npm run dev:api       # build shared, then the API in watch mode (http://localhost:3000)
 npm test              # Vitest once, web (MUST pass before any commit)
 npm run test:watch    # Vitest watch

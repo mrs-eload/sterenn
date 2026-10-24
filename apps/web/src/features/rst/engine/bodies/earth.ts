@@ -22,7 +22,7 @@ import { BLOOM_LAYER } from '../render/BloomPipeline';
  * world units, not 1.
  */
 
-const DEFAULT_TEXTURE_BASE = '/sterenn/textures/earth/';
+const DEFAULT_TEXTURE_BASE = `${import.meta.env.BASE_URL}textures/earth/`;
 
 export interface EarthHandle {
   /** Add this to the scene; the engine positions it at Earth each frame. */

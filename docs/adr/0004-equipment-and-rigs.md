@@ -434,6 +434,14 @@ These were listed as "Not decided" and have since been answered.
 
 - **Rig problems.** A save that breaks rule a, c or d, or lacks a mount, telescope or camera, is refused with a 400 listing the errors. Every rig response carries `problems: { errors, warnings }`, recomputed by `RigValidator` on read. Rule b mismatches are warnings. A rig made incomplete by a deletion shows as `errors.length > 0`.
 
+### 13. Decided 2026-10-24
+
+- **Hosting provider:** Vercel, one project with two services declared in the root `vercel.json`: `web` (the static Vite build, with an `index.html` fallback for client routes) and `api` (NestJS as a Vercel Function). Domain: `sterenn-astro.bzh`. GitHub Pages is dropped, so the Vite base is `/`.
+- **Same domain for web and API:** `/api/*` is routed to the API and everything else to the web. Vercel passes the path through unchanged, so the API sets the global prefix `api` and every route in section 12 is served under `/api` (locally too: `http://localhost:3000/api`). The session cookie is `SameSite=Lax`; serving the API on the web app's own domain keeps it first-party. Production builds read `VITE_API_URL=/api` from `apps/web/.env.production`.
+- **Database:** Neon PostgreSQL, Frankfurt, free plan, added through the Vercel Marketplace, which sets `DATABASE_URL` (the pooled connection string). Preview deployments get their own database branch, so a migration on a branch never reaches the production database. The functions region is Frankfurt (`fra1`), next to the database.
+- **Entities and migrations are listed explicitly** in `config/data-source.ts`, not found by a file glob. Vercel ships only the files the entrypoint imports, so globbed files would be missing from the function. A new entity or migration must be added to these lists.
+- **`WEB_ORIGIN`** is `https://sterenn-astro.bzh`. The Google OAuth client lists that origin, so sign-in works on the production domain only, not on preview URLs.
+
 ## Out of scope
 
 Do not build or design any of these as part of this module:
@@ -453,12 +461,12 @@ Do not build or design any of these as part of this module:
 
 No answer exists for these yet. Ask before choosing.
 
-- Hosting provider.
+- Nothing at the moment. The hosting provider was decided on 2026-10-24 (section 13).
 
 ## To verify during implementation
 
 - ~~Whether TypeORM's migration generator detects a change in an existing CHECK constraint's expression when an enum changes.~~ **Verified 2026-10-23 (TypeORM 1.1.2, PostgreSQL 17): it does.** Adding a value to `MountType` generated a migration that drops the old CHECK and adds the new one; the constraint name is a hash of the expression. With no change, the generator reports no changes, so PostgreSQL's rewritten form of the stored expression does not cause false diffs.
-- Whether the hosting platform, once chosen, installs from the repo root when it builds one workspace.
+- Whether Vercel installs from the repo root when it builds one service. Both services' build commands `cd ../..` to build `apps/shared` first, which assumes the whole workspace is installed. Also unverified: whether Vercel's NestJS build still compiles `src/main.ts` when the service sets its own `buildCommand`. Check both on the first deploy.
 - TypeORM returns `decimal` columns as strings on some databases (PostgreSQL and MySQL among them). Each decimal column uses `decimal_column` from `common/decimal.transformer.ts`, which converts to and from `number`.
 
 ## Implementation notes (2026-10-23)

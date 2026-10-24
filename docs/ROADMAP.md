@@ -71,7 +71,7 @@ sensor/focal-length constants. Local, no API.
 
 The first persistent data, and the first backend: NestJS + TypeORM on
 PostgreSQL. Spec: ADR 0004. Screens built from the Claude Design kit
-(`ui_kits/equipment`). Open: hosting provider. Polish later: passband editor,
+(`ui_kits/equipment`). Hosted on Vercel + Neon (ADR 0004 section 13). Polish later: passband editor,
 tests. The rig tools of subject 4 (FOV, exposure) can now read real equipment
 specs from here.
 

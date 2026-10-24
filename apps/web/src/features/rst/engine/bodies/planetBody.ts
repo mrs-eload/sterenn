@@ -11,7 +11,7 @@ import type { AtmosphereOptions } from './atmosphere.ts';
  */
 
 // Every planet texture sits under <base>/textures/<planet>/. BASE_URL is the
-// Vite base ('/sterenn/'), so this matches earth.ts's served path.
+// Vite base, so this matches earth.ts's served path.
 export const TEXTURE_BASE = `${import.meta.env.BASE_URL}textures/`;
 
 export interface PlanetHandle {

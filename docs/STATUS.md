@@ -119,8 +119,11 @@ Done, in order:
 Running it locally: `docker compose up -d` in `apps/api`, fill `apps/api/.env`
 and `apps/web/.env.local`, then `npm run dev:api` and `npm run dev`. See README.
 
-Still open from ADR 0004: the hosting provider (and whether it installs from the
-repo root for one workspace).
+Hosting (ADR 0004 section 13): Vercel, web and API as two services of one
+project on `sterenn-astro.bzh`, API under `/api`, Neon Postgres in Frankfurt.
+Not yet deployed. Still to verify on the first deploy: that Vercel installs the
+whole workspace for one service, and that the NestJS build runs with our own
+`buildCommand`.
 
 ## Next brick
 

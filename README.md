@@ -3,6 +3,8 @@
 A personal astrophotography web app: tonight's conditions (the longest
 contiguous clear block, not "any clear hour"), and your equipment and rigs.
 
+Live at <https://sterenn-astro.bzh>.
+
 - `apps/web`: React 19 + Vite + MUI
 - `apps/api`: NestJS + TypeORM + PostgreSQL, Google sign-in
 - `apps/shared`: enums, zod schemas, response types and rig rules used by both
@@ -25,8 +27,8 @@ cp apps/api/.env.example apps/api/.env          # set GOOGLE_CLIENT_ID and ALLOW
 cp apps/web/.env.example apps/web/.env.local    # set VITE_GOOGLE_CLIENT_ID (same client ID)
 
 # two terminals
-npm run dev:api   # http://localhost:3000, applies pending migrations at startup
-npm run dev       # http://localhost:5173/sterenn/
+npm run dev:api   # http://localhost:3000/api, applies pending migrations at startup
+npm run dev       # http://localhost:5173/
 ```
 
 The conditions pages work without the API. The equipment page needs it and a
@@ -50,3 +52,22 @@ creates the single user.
 npm run migration:generate -w @sterenn/api -- migrations/<Name>   # after changing an entity
 npm run migration:run -w @sterenn/api
 ```
+
+A new migration (or entity) must also be added to the lists in
+`apps/api/src/config/data-source.ts`: they are imported explicitly so the
+deployed function ships them.
+
+## Deployment
+
+Vercel, one project with two services (`vercel.json`): `web` serves the static
+app and `api` runs the NestJS API as a function under `/api` on the same domain,
+which keeps the session cookie first-party. Every push to `main` deploys.
+
+- Domain: `sterenn-astro.bzh`, added under Project → Settings → Domains.
+- Database: Neon Postgres (Frankfurt) from the Vercel Marketplace; it sets
+  `DATABASE_URL`. Preview deployments get their own database branch.
+- Environment variables: `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID` (same
+  value), `ALLOWED_GOOGLE_EMAIL`, `WEB_ORIGIN=https://sterenn-astro.bzh`.
+- Functions region: Frankfurt (`fra1`), next to the database.
+- Google sign-in works on `https://sterenn-astro.bzh` only: it is the
+  production origin listed in the OAuth client.

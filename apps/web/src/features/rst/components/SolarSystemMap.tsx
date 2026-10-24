@@ -51,7 +51,7 @@ const SPACECRAFT: SpacecraftSource[] = [
   {
     id: 'rst',
     parentBody: 'Earth',
-    modelUrl: '/sterenn/horizons/rst/model/RST_v4.glb',
+    modelUrl: `${import.meta.env.BASE_URL}horizons/rst/model/RST_v4.glb`,
     modelScale: 1e-7,
     calibration: [0, -1.6 + Math.PI, 0],
     color: 0xffffff,
@@ -61,7 +61,7 @@ const SPACECRAFT: SpacecraftSource[] = [
   {
     id: 'jwst',
     parentBody: 'Earth',
-    modelUrl: '/sterenn/horizons/jwst/model/JWST.glb',
+    modelUrl: `${import.meta.env.BASE_URL}horizons/jwst/model/JWST.glb`,
     // JWST.glb is modelled in metres (~21 m sunshield); 1.6e-6 brings its drawn
     // size onto RST's so the two read at a consistent (exaggerated) scale. The
     // scale and calibration are eyeball starting values — retune in the app.
@@ -188,7 +188,7 @@ export const SolarSystemMap: React.FC<SolarSystemMapProps> = ({ trajectories }) 
         // globe at any zoom where you can actually resolve it.
         trueScale: true,
         minPixelRadius: 3.5,
-        skyboxUrl: '/sterenn/textures/skybox/skybox.jpg',
+        skyboxUrl: `${import.meta.env.BASE_URL}textures/skybox/skybox.jpg`,
       });
 
       // Sun–Earth Lagrange points. L2 is where RST sits; L3 is on the far side

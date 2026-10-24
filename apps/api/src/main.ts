@@ -7,6 +7,10 @@ import { env } from './config/env';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  // Vercel routes /api/* to this service without stripping the prefix, and
+  // serving the API on the web app's own domain keeps the SameSite=Lax session
+  // cookie first-party.
+  app.setGlobalPrefix('api');
   app.use(cookieParser());
   app.useGlobalFilters(new DomainErrorFilter());
   // Only the frontend may call the API with credentials (ADR 0004 section 5).
