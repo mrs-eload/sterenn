@@ -1,6 +1,8 @@
 import {
+  EmissionLine,
   EquipmentType,
   FilterType,
+  type Passband,
   type EquipmentResponse,
   type EquipmentThreadResponse,
   type RigPart,
@@ -70,12 +72,21 @@ const OPTION_LABEL: Record<string, string> = {
   front: 'Front',
   rear: 'Rear',
   inside: 'Inside',
+  // Also the Ha filter type, which shares the value.
+  [EmissionLine.H_ALPHA]: 'Hα',
+  [EmissionLine.H_BETA]: 'Hβ',
   [FilterType.DUAL_BAND]: 'Dual-band',
   [FilterType.OTHER]: 'Other',
 };
 
 export function optionLabel(value: string): string {
   return OPTION_LABEL[value] ?? value;
+}
+
+// "Hα 7 nm" for a line band, "656.3 / 7 nm" for one without a line.
+export function passbandLabel(band: Passband): string {
+  // `line` is absent on bands saved before it existed.
+  return band.line ? `${optionLabel(band.line)} ${band.bandwidth_nm} nm` : `${band.center_nm} / ${band.bandwidth_nm} nm`;
 }
 
 export function grams(value: number | null): string | null {
@@ -172,7 +183,7 @@ export function specRows(equipment: EquipmentResponse): [string, string | null][
         ['Mounting', specs.disc_diameter_mm ? `Unmounted · ${specs.disc_diameter_mm} mm disc` : 'Threaded'],
         [
           'Passbands',
-          specs.passbands?.map((band) => `${band.center_nm} / ${band.bandwidth_nm} nm`).join('  ·  ') ?? null,
+          specs.passbands?.map(passbandLabel).join('  ·  ') ?? null,
         ],
       ];
     }

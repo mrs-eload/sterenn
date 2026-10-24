@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  EmissionLine,
   EquipmentType,
   FilterType,
   HolderType,
@@ -72,6 +73,9 @@ export const filter_holder_specs_schema = z.object({
 });
 
 export const passband_schema = z.object({
+  // The line the band isolates; null for a band that isn't built around one.
+  // Stored inside the passbands JSON, so no migration (older rows read as null).
+  line: z.enum(EmissionLine).nullable().default(null),
   center_nm: positive_decimal,
   bandwidth_nm: positive_decimal,
 });

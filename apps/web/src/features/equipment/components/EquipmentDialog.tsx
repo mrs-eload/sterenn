@@ -7,6 +7,8 @@ import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import {
+  EMISSION_LINE_NM,
+  EmissionLine,
   EquipmentType,
   FilterType,
   HolderType,
@@ -79,6 +81,8 @@ const SPEC_FIELDS: Record<EquipmentType, Field[]> = {
 
 type SpecValues = Record<string, string | boolean>;
 type ThreadRow = { thread_size_id: string; gender: ThreadGender; position: ThreadPosition };
+// line '' is "Other": a band not built around a named emission line.
+type PassbandRow = { line: EmissionLine | ''; center_nm: string; bandwidth_nm: string };
 
 const NEW_THREAD_SIZE = '__new__';
 
@@ -109,7 +113,7 @@ function defaultsFor(type: EquipmentType): SpecValues {
 
 // Strings from the inputs become numbers, empty optional fields become null.
 // The zod schema then has the final say.
-function buildSpecs(type: EquipmentType, values: SpecValues, existing: EquipmentResponse | null): Record<string, unknown> {
+function buildSpecs(type: EquipmentType, values: SpecValues, passbands: PassbandRow[]): Record<string, unknown> {
   const specs: Record<string, unknown> = {};
   for (const field of SPEC_FIELDS[type]) {
     const raw = values[field.key];
@@ -122,11 +126,28 @@ function buildSpecs(type: EquipmentType, values: SpecValues, existing: Equipment
     else if (field.kind === 'switch') specs[field.key] = raw === undefined ? null : raw;
     else specs[field.key] = raw;
   }
-  // The dialog has no passband editor yet; keep what the filter already has.
-  if (type === EquipmentType.FILTER && existing?.type === EquipmentType.FILTER) {
-    specs.passbands = existing.specs.passbands;
+  // Empty number inputs are kept as '' so zod reports them instead of reading 0.
+  if (type === EquipmentType.FILTER) {
+    specs.passbands =
+      passbands.length === 0
+        ? null
+        : passbands.map((row) => ({
+            line: row.line === '' ? null : row.line,
+            center_nm: row.center_nm === '' ? '' : Number(row.center_nm),
+            bandwidth_nm: row.bandwidth_nm === '' ? '' : Number(row.bandwidth_nm),
+          }));
   }
   return specs;
+}
+
+function passbandRowsFrom(equipment: EquipmentResponse | null): PassbandRow[] {
+  if (equipment?.type !== EquipmentType.FILTER || !equipment.specs.passbands) return [];
+  return equipment.specs.passbands.map((band) => ({
+    // Bands saved before lines existed have no `line` key at all.
+    line: band.line ?? '',
+    center_nm: String(band.center_nm),
+    bandwidth_nm: String(band.bandwidth_nm),
+  }));
 }
 
 function Labelled({ label, optional }: { label: string; optional?: boolean }): ReactNode {
@@ -164,6 +185,7 @@ export function EquipmentDialog({
   const [threads, setThreads] = useState<ThreadRow[]>(
     () => equipment?.threads.map(({ thread_size_id, gender, position }) => ({ thread_size_id, gender, position })) ?? [],
   );
+  const [passbands, setPassbands] = useState<PassbandRow[]>(() => passbandRowsFrom(equipment));
   const [new_size_row, setNewSizeRow] = useState<number | null>(null);
   const [new_size, setNewSize] = useState({ diameter_mm: '', pitch_mm: '', name: '' });
   const [errors, setErrors] = useState<string[]>([]);
@@ -176,6 +198,11 @@ export function EquipmentDialog({
   const setSpec = (key: string, value: string | boolean) => setSpecValues((values) => ({ ...values, [key]: value }));
   const setThread = (index: number, change: Partial<ThreadRow>) =>
     setThreads((rows) => rows.map((row, at) => (at === index ? { ...row, ...change } : row)));
+  const setPassband = (index: number, change: Partial<PassbandRow>) =>
+    setPassbands((rows) => rows.map((row, at) => (at === index ? { ...row, ...change } : row)));
+  // Picking a line fills in its wavelength; it stays editable for off-centre filters.
+  const pickLine = (index: number, line: EmissionLine | '') =>
+    setPassband(index, line === '' ? { line } : { line, center_nm: String(EMISSION_LINE_NM[line]) });
 
   const addThreadSize = async () => {
     if (new_size_row === null) return;
@@ -202,7 +229,7 @@ export function EquipmentDialog({
       weight_g: weight === '' ? null : Number(weight),
       notes: notes.trim() === '' ? null : notes,
       threads: threads.map((row) => ({ ...row, notes: null })),
-      ...(type === EquipmentType.ADAPTER ? {} : { specs: buildSpecs(type, spec_values, equipment) }),
+      ...(type === EquipmentType.ADAPTER ? {} : { specs: buildSpecs(type, spec_values, passbands) }),
     };
     const parsed = equipment_input_schema.safeParse(candidate);
     if (!parsed.success) {
@@ -308,9 +335,38 @@ export function EquipmentDialog({
               </Box>
             )}
             {type === EquipmentType.FILTER && (
-              <Box sx={{ color: text.muted, fontSize: size.xs, mt: 1.25 }}>
-                Threaded filter: add its thread below. Unmounted filter: fill in the disc diameter instead.
-              </Box>
+              <>
+                <Box sx={{ color: text.muted, fontSize: size.xs, mt: 1.25 }}>
+                  Threaded filter: add its thread below. Unmounted filter: fill in the disc diameter instead.
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2.5, mb: 1.25 }}>
+                  <SectionLabel sx={{ mb: 0 }}>Passbands</SectionLabel>
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    startIcon={<IconifyIcon icon="tabler:plus" />}
+                    onClick={() => setPassbands((rows) => [...rows, { line: '', center_nm: '', bandwidth_nm: '' }])}
+                  >
+                    Add passband
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                  {passbands.length === 0 && <Box sx={{ color: text.muted, fontSize: size.xs }}>No passbands.</Box>}
+                  {passbands.map((row, index) => (
+                    <Box key={index} sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 36px', gap: 1.25, alignItems: 'end' }}>
+                      <Field select label="Line" value={row.line} onChange={(event) => pickLine(index, event.target.value as EmissionLine | '')}>
+                        {Object.values(EmissionLine).map((line) => <MenuItem key={line} value={line}>{optionLabel(line)}</MenuItem>)}
+                        <MenuItem value="">Other</MenuItem>
+                      </Field>
+                      <Field label="Centre (nm)" type="number" placeholder="—" value={row.center_nm} onChange={(event) => setPassband(index, { center_nm: event.target.value })} />
+                      <Field label="Bandwidth (nm)" type="number" placeholder="7" value={row.bandwidth_nm} onChange={(event) => setPassband(index, { bandwidth_nm: event.target.value })} />
+                      <IconButton aria-label="Remove passband" onClick={() => setPassbands((rows) => rows.filter((_, at) => at !== index))} sx={{ mb: '6px' }}>
+                        <IconifyIcon icon="tabler:x" sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              </>
             )}
           </div>
         )}

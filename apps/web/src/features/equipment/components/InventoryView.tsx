@@ -6,6 +6,7 @@ import {
   grams,
   optionLabel,
   roleInRig,
+  passbandLabel,
   specRows,
   threadAt,
   threadSizeLabel,
@@ -80,13 +81,13 @@ function columnsFor(type: EquipmentType, sizes: ThreadSizeIndex): Column[] {
       return [
         ['Type', (e) => e.type === EquipmentType.FILTER && optionLabel(e.specs.filter_type)],
         [
-          'Passbands (nm)',
+          'Passbands',
           (e) =>
             e.type === EquipmentType.FILTER &&
             e.specs.passbands && (
               <Box component="span" sx={{ display: 'flex', flexDirection: 'column', whiteSpace: 'nowrap' }}>
                 {e.specs.passbands.map((band) => (
-                  <span key={band.center_nm}>{band.center_nm} / {band.bandwidth_nm}</span>
+                  <span key={band.center_nm}>{passbandLabel(band)}</span>
                 ))}
               </Box>
             ),

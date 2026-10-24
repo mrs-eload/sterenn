@@ -293,7 +293,7 @@ filter
   equipment_id      PK, FK equipment
   filter_type       L | R | G | B | Ha | OIII | SII | dual_band | other
   disc_diameter_mm  decimal ?           -- for unmounted filters
-  passbands         json ?              -- [{ center_nm, bandwidth_nm }, ...]
+  passbands         json ?              -- [{ line ?, center_nm, bandwidth_nm }, ...]; line: Ha | Hb | OIII | SII | NII
 
 corrector                         -- reducer, flattener, barlow
   equipment_id      PK, FK equipment
@@ -487,7 +487,7 @@ What the built code adds to, or chooses within, the decisions above.
 - **`camera.sensor_chip`** (optional text) was added on 2026-10-23, migration `CameraSensorChip`.
 - **Sensor size is derived, not stored:** width and height are pixel size × resolution (`apps/web/src/core/optics/sensorSize.ts`), shown in the camera's details and in the dialog. This display was asked for after this ADR listed sensor size among out-of-scope calculations; no other optics calculation is in scope.
 - **Full well is entered and shown in ke⁻** in the UI; `full_well_e` still stores electrons.
-- **Not done:** automated tests for shared, API and the equipment feature; a passband editor in the UI.
+- **Not done:** automated tests for shared, API and the equipment feature.
 
 ## Rejected alternatives
 
