@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import pg from 'pg';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { Init1792783457511 } from '../../migrations/1792783457511-Init.js';
 import { CameraSensorChip1792789358882 } from '../../migrations/1792789358882-CameraSensorChip.js';
@@ -25,6 +26,9 @@ import { env } from './env.js';
 // A new entity or migration must be added here.
 export const data_source_options: DataSourceOptions = {
   type: 'postgres',
+  // Passed in rather than left to TypeORM, which require()s pg at runtime:
+  // Vercel cannot see that require and would not ship pg with the function.
+  driver: pg,
   url: env.DATABASE_URL,
   entities: [
     Session,
