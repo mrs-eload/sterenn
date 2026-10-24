@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthController } from './controllers/auth.controller';
-import { Session } from './entities/session.entity';
-import { User } from './entities/user.entity';
-import { SessionRepository } from './repositories/session.repository';
-import { TypeormSessionRepository } from './repositories/typeorm-session.repository';
-import { TypeormUserRepository } from './repositories/typeorm-user.repository';
-import { UserRepository } from './repositories/user.repository';
-import { AuthService } from './services/auth.service';
-import { GoogleTokenVerifier } from './services/google-token.verifier';
-import { SessionGuard } from './session.guard';
+import { AuthController } from './controllers/auth.controller.js';
+import { Session } from './entities/session.entity.js';
+import { User } from './entities/user.entity.js';
+import { SessionRepository } from './repositories/session.repository.js';
+import { TypeormSessionRepository } from './repositories/typeorm-session.repository.js';
+import { TypeormUserRepository } from './repositories/typeorm-user.repository.js';
+import { UserRepository } from './repositories/user.repository.js';
+import { AuthService } from './services/auth.service.js';
+import { GoogleTokenVerifier } from './services/google-token.verifier.js';
+import { SessionGuard } from './session.guard.js';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Session])],

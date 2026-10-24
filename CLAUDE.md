@@ -123,9 +123,14 @@ Local env files (gitignored): `apps/api/.env` (from `.env.example`) and
 
 4. **Type-only imports.** `verbatimModuleSyntax` is on in `apps/shared`: import
    types with `import type { Foo }`. It is off in `apps/web` and `apps/api` (the
-   API is CommonJS, where it forbids `import` syntax), but keep using
-   `import type` for type-only symbols there too. In the API, never `import type`
-   a class that Nest injects: decorator metadata needs the value import.
+   migrations TypeORM generates would fail it), but keep using `import type` for
+   type-only symbols there too. In the API, never `import type` a class that
+   Nest injects: decorator metadata needs the value import.
+
+   **The API is ESM.** Relative imports end in `.js` (`'./rig.entity.js'`), and
+   an entity property typed with another entity is wrapped in `Relation<...>`
+   (`mount: Relation<Mount> | null`): under ESM, entities that import each other
+   otherwise crash at startup.
 
 5. **suncalc has no default export.** Use `import * as SunCalc from 'suncalc'`.
    It exposes named functions (`getTimes`, `getMoonIllumination`, `getMoonTimes`).

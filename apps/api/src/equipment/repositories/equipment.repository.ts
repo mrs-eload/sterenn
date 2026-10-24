@@ -1,5 +1,5 @@
 import type { EquipmentListQuery } from '@sterenn/shared';
-import type { Equipment } from '../entities/equipment.entity';
+import type { Equipment } from '../entities/equipment.entity.js';
 
 // Saves and loads an Equipment with its specs row and threads (cascade).
 export abstract class EquipmentRepository {

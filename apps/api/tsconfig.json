@@ -14,8 +14,8 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    // This package is CommonJS (Nest and the TypeORM CLI), and verbatimModuleSyntax
-    // forbids ESM import syntax in CommonJS files.
+    // Off: TypeORM's migration:generate writes `import { MigrationInterface }`
+    // without `import type`, which verbatimModuleSyntax rejects.
     "verbatimModuleSyntax": false,
     "erasableSyntaxOnly": false,
     "noUnusedLocals": true,

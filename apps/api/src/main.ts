@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
-import { AppModule } from './app.module';
-import { DomainErrorFilter } from './common/domain-error.filter';
-import { env } from './config/env';
+import { AppModule } from './app.module.js';
+import { DomainErrorFilter } from './common/domain-error.filter.js';
+import { env } from './config/env.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);

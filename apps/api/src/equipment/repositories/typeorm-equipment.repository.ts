@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EquipmentListQuery } from '@sterenn/shared';
 import { In, Repository, type SelectQueryBuilder } from 'typeorm';
-import { EquipmentThread } from '../entities/equipment-thread.entity';
-import { Equipment } from '../entities/equipment.entity';
-import { EquipmentRepository } from './equipment.repository';
+import { EquipmentThread } from '../entities/equipment-thread.entity.js';
+import { Equipment } from '../entities/equipment.entity.js';
+import { EquipmentRepository } from './equipment.repository.js';
 
 const SPECS_RELATIONS = ['mount', 'telescope', 'camera', 'filter_holder', 'filter', 'corrector'] as const;
 

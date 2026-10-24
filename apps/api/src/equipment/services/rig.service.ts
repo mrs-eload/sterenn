@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { RigInput } from '@sterenn/shared';
-import { NotFoundError, ValidationError } from '../../common/domain-errors';
-import type { Equipment } from '../entities/equipment.entity';
-import { RigChainItem } from '../entities/rig-chain-item.entity';
-import { RigFilter } from '../entities/rig-filter.entity';
-import { Rig } from '../entities/rig.entity';
-import { EquipmentRepository } from '../repositories/equipment.repository';
-import { RigRepository } from '../repositories/rig.repository';
-import { type RigDraft, type RigProblems, RigValidator } from '../rules/rig-validator';
+import { NotFoundError, ValidationError } from '../../common/domain-errors.js';
+import type { Equipment } from '../entities/equipment.entity.js';
+import { RigChainItem } from '../entities/rig-chain-item.entity.js';
+import { RigFilter } from '../entities/rig-filter.entity.js';
+import { Rig } from '../entities/rig.entity.js';
+import { EquipmentRepository } from '../repositories/equipment.repository.js';
+import { RigRepository } from '../repositories/rig.repository.js';
+import { type RigDraft, type RigProblems, RigValidator } from '../rules/rig-validator.js';
 
 export type RigWithProblems = {
   rig: Rig;

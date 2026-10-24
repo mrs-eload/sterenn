@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
-import { User } from './user.entity';
+import type { Relation } from 'typeorm';
+import { User } from './user.entity.js';
 
 @Entity('session')
 export class Session {
@@ -12,7 +13,7 @@ export class Session {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   // Only the hash of the cookie value is stored, so a leaked table cannot be
   // replayed as cookies.

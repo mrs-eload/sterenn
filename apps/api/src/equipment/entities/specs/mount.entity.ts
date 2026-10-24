@@ -1,7 +1,8 @@
 import { MountType } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { sqlList } from '../../../common/sql-list';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { sqlList } from '../../../common/sql-list.js';
+import { Equipment } from '../equipment.entity.js';
 
 @Entity('mount')
 @Check(`mount_type IN (${sqlList(MountType)})`)
@@ -11,7 +12,7 @@ export class Mount {
 
   @OneToOne(() => Equipment, (equipment) => equipment.mount, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column({ type: 'varchar', length: 255 })
   mount_type: MountType;

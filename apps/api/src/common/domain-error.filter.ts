@@ -1,7 +1,7 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
-import { NotFoundError, ValidationError } from './domain-errors';
+import { NotFoundError, ValidationError } from './domain-errors.js';
 
 // SQLSTATE codes are standard SQL, not PostgreSQL-specific.
 const UNIQUE_VIOLATION = '23505';

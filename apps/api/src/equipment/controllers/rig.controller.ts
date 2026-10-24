@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { type RigInput, rig_input_schema } from '@sterenn/shared';
-import { CurrentUserId } from '../../auth/session.guard';
-import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import type { RigProblems } from '../rules/rig-validator';
-import { type RigWithProblems, RigService } from '../services/rig.service';
+import { CurrentUserId } from '../../auth/session.guard.js';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
+import type { RigProblems } from '../rules/rig-validator.js';
+import { type RigWithProblems, RigService } from '../services/rig.service.js';
 
 export type RigResponse = {
   id: string;

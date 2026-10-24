@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ThreadSize } from '../entities/thread-size.entity';
-import { ThreadSizeRepository } from './thread-size.repository';
+import { ThreadSize } from '../entities/thread-size.entity.js';
+import { ThreadSizeRepository } from './thread-size.repository.js';
 
 @Injectable()
 export class TypeormThreadSizeRepository extends ThreadSizeRepository {

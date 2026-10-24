@@ -1,4 +1,4 @@
-import type { ThreadSize } from '../entities/thread-size.entity';
+import type { ThreadSize } from '../entities/thread-size.entity.js';
 
 export abstract class ThreadSizeRepository {
   abstract save(thread_size: ThreadSize): Promise<ThreadSize>;

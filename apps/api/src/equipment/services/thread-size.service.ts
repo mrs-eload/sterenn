@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { ThreadSizeInput } from '@sterenn/shared';
-import { NotFoundError } from '../../common/domain-errors';
-import { ThreadSize } from '../entities/thread-size.entity';
-import { ThreadSizeRepository } from '../repositories/thread-size.repository';
+import { NotFoundError } from '../../common/domain-errors.js';
+import { ThreadSize } from '../entities/thread-size.entity.js';
+import { ThreadSizeRepository } from '../repositories/thread-size.repository.js';
 
 @Injectable()
 export class ThreadSizeService {

@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { env } from '../../config/env';
-import { Session } from '../entities/session.entity';
-import { User } from '../entities/user.entity';
-import { SessionRepository } from '../repositories/session.repository';
-import { UserRepository } from '../repositories/user.repository';
-import { GoogleTokenVerifier } from './google-token.verifier';
+import { env } from '../../config/env.js';
+import { Session } from '../entities/session.entity.js';
+import { User } from '../entities/user.entity.js';
+import { SessionRepository } from '../repositories/session.repository.js';
+import { UserRepository } from '../repositories/user.repository.js';
+import { GoogleTokenVerifier } from './google-token.verifier.js';
 
 export const SESSION_LIFETIME_DAYS = 30;
 const SESSION_LIFETIME_MS = SESSION_LIFETIME_DAYS * 24 * 60 * 60 * 1000;

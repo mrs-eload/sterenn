@@ -1,10 +1,10 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { type GoogleSignInInput, google_sign_in_input_schema } from '@sterenn/shared';
 import type { Request, Response } from 'express';
-import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import type { User } from '../entities/user.entity';
-import { AuthService } from '../services/auth.service';
-import { clearSessionCookie, CurrentUserId, Public, readSessionCookie, setSessionCookie } from '../session.guard';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
+import type { User } from '../entities/user.entity.js';
+import { AuthService } from '../services/auth.service.js';
+import { clearSessionCookie, CurrentUserId, Public, readSessionCookie, setSessionCookie } from '../session.guard.js';
 
 type UserResponse = { id: string; email: string };
 

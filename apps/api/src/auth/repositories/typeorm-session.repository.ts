@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Session } from '../entities/session.entity';
-import { SessionRepository } from './session.repository';
+import { Session } from '../entities/session.entity.js';
+import { SessionRepository } from './session.repository.js';
 
 @Injectable()
 export class TypeormSessionRepository extends SessionRepository {

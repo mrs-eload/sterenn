@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Column, Entity, PrimaryColumn, Unique } from 'typeorm';
-import { decimal_column } from '../../common/decimal.transformer';
+import { decimal_column } from '../../common/decimal.transformer.js';
 
 // A thread dimension, e.g. M48x0.75. One row per size, so a size has one
 // common name shared by every thread that uses it.

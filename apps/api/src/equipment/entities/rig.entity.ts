@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, UpdateDateColumn } from 'typeorm';
-import { RigChainItem } from './rig-chain-item.entity';
-import { RigFilter } from './rig-filter.entity';
-import { Camera } from './specs/camera.entity';
-import { Mount } from './specs/mount.entity';
-import { Telescope } from './specs/telescope.entity';
+import type { Relation } from 'typeorm';
+import { RigChainItem } from './rig-chain-item.entity.js';
+import { RigFilter } from './rig-filter.entity.js';
+import { Camera } from './specs/camera.entity.js';
+import { Mount } from './specs/mount.entity.js';
+import { Telescope } from './specs/telescope.entity.js';
 
 @Entity('rig')
 export class Rig {
@@ -34,21 +35,21 @@ export class Rig {
 
   @ManyToOne(() => Mount, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'mount_id' })
-  mount: Mount | null;
+  mount: Relation<Mount> | null;
 
   @Column({ type: 'uuid', nullable: true })
   guide_telescope_id: string | null;
 
   @ManyToOne(() => Telescope, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'guide_telescope_id' })
-  guide_telescope: Telescope | null;
+  guide_telescope: Relation<Telescope> | null;
 
   @Column({ type: 'uuid', nullable: true })
   guide_camera_id: string | null;
 
   @ManyToOne(() => Camera, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'guide_camera_id' })
-  guide_camera: Camera | null;
+  guide_camera: Relation<Camera> | null;
 
   @CreateDateColumn()
   created_at: Date;

@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { type EquipmentInput, type EquipmentListQuery, EquipmentType } from '@sterenn/shared';
-import { NotFoundError, ValidationError } from '../../common/domain-errors';
-import { EquipmentThread } from '../entities/equipment-thread.entity';
-import { Equipment } from '../entities/equipment.entity';
-import { Camera } from '../entities/specs/camera.entity';
-import { Corrector } from '../entities/specs/corrector.entity';
-import { FilterHolder } from '../entities/specs/filter-holder.entity';
-import { Filter } from '../entities/specs/filter.entity';
-import { Mount } from '../entities/specs/mount.entity';
-import { Telescope } from '../entities/specs/telescope.entity';
-import { EquipmentRepository } from '../repositories/equipment.repository';
+import { NotFoundError, ValidationError } from '../../common/domain-errors.js';
+import { EquipmentThread } from '../entities/equipment-thread.entity.js';
+import { Equipment } from '../entities/equipment.entity.js';
+import { Camera } from '../entities/specs/camera.entity.js';
+import { Corrector } from '../entities/specs/corrector.entity.js';
+import { FilterHolder } from '../entities/specs/filter-holder.entity.js';
+import { Filter } from '../entities/specs/filter.entity.js';
+import { Mount } from '../entities/specs/mount.entity.js';
+import { Telescope } from '../entities/specs/telescope.entity.js';
+import { EquipmentRepository } from '../repositories/equipment.repository.js';
 
 // Writes the input onto the entity. An existing specs object is updated in
 // place so TypeORM's cascade updates the row instead of inserting a duplicate.

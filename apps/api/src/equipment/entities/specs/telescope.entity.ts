@@ -1,8 +1,9 @@
 import { OpticalDesign } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { decimal_column } from '../../../common/decimal.transformer';
-import { sqlList } from '../../../common/sql-list';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { decimal_column } from '../../../common/decimal.transformer.js';
+import { sqlList } from '../../../common/sql-list.js';
+import { Equipment } from '../equipment.entity.js';
 
 // Used as main or guide telescope; the role comes from where a rig references it.
 @Entity('telescope')
@@ -13,7 +14,7 @@ export class Telescope {
 
   @OneToOne(() => Equipment, (equipment) => equipment.telescope, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column({ type: 'varchar', length: 255 })
   optical_design: OpticalDesign;

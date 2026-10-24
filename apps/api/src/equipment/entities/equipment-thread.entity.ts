@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { ThreadGender, ThreadPosition } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
-import { sqlList } from '../../common/sql-list';
-import { Equipment } from './equipment.entity';
-import { ThreadSize } from './thread-size.entity';
+import type { Relation } from 'typeorm';
+import { sqlList } from '../../common/sql-list.js';
+import { Equipment } from './equipment.entity.js';
+import { ThreadSize } from './thread-size.entity.js';
 
 // A physical thread on a piece of equipment.
 @Entity('equipment_thread')
@@ -20,7 +21,7 @@ export class EquipmentThread {
   // old rows instead of trying to null their equipment_id.
   @ManyToOne(() => Equipment, (equipment) => equipment.threads, { onDelete: 'CASCADE', orphanedRowAction: 'delete' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column('uuid')
   thread_size_id: string;
@@ -28,7 +29,7 @@ export class EquipmentThread {
   // A thread size still used by a thread cannot be deleted (ADR 0004 section 12).
   @ManyToOne(() => ThreadSize, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'thread_size_id' })
-  thread_size: ThreadSize;
+  thread_size: Relation<ThreadSize>;
 
   @Column({ type: 'varchar', length: 255 })
   gender: ThreadGender;

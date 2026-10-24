@@ -1,8 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { type ThreadSizeInput, thread_size_input_schema } from '@sterenn/shared';
-import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import type { ThreadSize } from '../entities/thread-size.entity';
-import { ThreadSizeService } from '../services/thread-size.service';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
+import type { ThreadSize } from '../entities/thread-size.entity.js';
+import { ThreadSizeService } from '../services/thread-size.service.js';
 
 @Controller('thread-sizes')
 export class ThreadSizeController {

@@ -66,8 +66,10 @@ which keeps the session cookie first-party. Every push to `main` deploys.
 - Domain: `sterenn-astro.bzh`, added under Project → Settings → Domains.
 - Database: Neon Postgres (Frankfurt) from the Vercel Marketplace; it sets
   `DATABASE_URL`. Preview deployments get their own database branch.
-- Environment variables: `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID` (same
-  value), `ALLOWED_GOOGLE_EMAIL`, `WEB_ORIGIN=https://sterenn-astro.bzh`.
+- Environment variables, all set in Vercel (no env file is committed):
+  `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID` (same value),
+  `ALLOWED_GOOGLE_EMAIL`, `WEB_ORIGIN=https://sterenn-astro.bzh`,
+  `VITE_API_URL=/api`.
 - Functions region: Frankfurt (`fra1`), next to the database.
 - Google sign-in works on `https://sterenn-astro.bzh` only: it is the
   production origin listed in the OAuth client.

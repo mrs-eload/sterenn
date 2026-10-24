@@ -23,5 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local environment (API secrets)
+# Environment files: configuration lives in .env locally and in Vercel in
+# production, never in the repo.
 .env
+.env.*
+!.env.example

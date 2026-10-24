@@ -1,8 +1,9 @@
 import { SensorColor } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { decimal_column } from '../../../common/decimal.transformer';
-import { sqlList } from '../../../common/sql-list';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { decimal_column } from '../../../common/decimal.transformer.js';
+import { sqlList } from '../../../common/sql-list.js';
+import { Equipment } from '../equipment.entity.js';
 
 // Used as main or guide camera; the role comes from where a rig references it.
 @Entity('camera')
@@ -13,7 +14,7 @@ export class Camera {
 
   @OneToOne(() => Equipment, (equipment) => equipment.camera, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column(decimal_column)
   pixel_size_um: number;

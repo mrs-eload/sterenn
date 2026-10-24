@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { type RigDraft, type RigPart, type RigProblems, validateRig } from '@sterenn/shared';
-import type { Equipment } from '../entities/equipment.entity';
+import type { Equipment } from '../entities/equipment.entity.js';
 
 export type { RigDraft, RigProblems };
 

@@ -5,9 +5,9 @@ import {
   equipment_input_schema,
   equipment_list_query_schema,
 } from '@sterenn/shared';
-import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import type { Equipment } from '../entities/equipment.entity';
-import { EquipmentService } from '../services/equipment.service';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
+import type { Equipment } from '../entities/equipment.entity.js';
+import { EquipmentService } from '../services/equipment.service.js';
 
 type ThreadResponse = {
   id: string;

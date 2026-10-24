@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
-import { AuthService } from './services/auth.service';
+import { AuthService } from './services/auth.service.js';
 
 export const SESSION_COOKIE_NAME = 'sterenn_session';
 

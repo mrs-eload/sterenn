@@ -1,8 +1,9 @@
 import { FilterType, type Passband } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { decimal_column } from '../../../common/decimal.transformer';
-import { sqlList } from '../../../common/sql-list';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { decimal_column } from '../../../common/decimal.transformer.js';
+import { sqlList } from '../../../common/sql-list.js';
+import { Equipment } from '../equipment.entity.js';
 
 // A mounted filter records its thread as an equipment_thread row; an
 // unmounted one records disc_diameter_mm instead.
@@ -14,7 +15,7 @@ export class Filter {
 
   @OneToOne(() => Equipment, (equipment) => equipment.filter, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column({ type: 'varchar', length: 255 })
   filter_type: FilterType;

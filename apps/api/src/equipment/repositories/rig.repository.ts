@@ -1,4 +1,4 @@
-import type { Rig } from '../entities/rig.entity';
+import type { Rig } from '../entities/rig.entity.js';
 
 // Saves and loads a Rig with its chain items and filters (cascade). A rig
 // refers to equipment by id and never modifies it.

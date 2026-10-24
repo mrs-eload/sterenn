@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
-import { env } from '../../config/env';
+import { env } from '../../config/env.js';
 
 export type GoogleIdentity = {
   sub: string;

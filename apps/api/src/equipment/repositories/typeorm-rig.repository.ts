@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Rig } from '../entities/rig.entity';
-import { RigRepository } from './rig.repository';
+import { Rig } from '../entities/rig.entity.js';
+import { RigRepository } from './rig.repository.js';
 
 const RIG_RELATIONS = { chain_items: true, filters: true };
 

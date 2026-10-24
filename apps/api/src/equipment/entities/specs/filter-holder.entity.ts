@@ -1,8 +1,9 @@
 import { HolderType } from '@sterenn/shared';
 import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { decimal_column } from '../../../common/decimal.transformer';
-import { sqlList } from '../../../common/sql-list';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { decimal_column } from '../../../common/decimal.transformer.js';
+import { sqlList } from '../../../common/sql-list.js';
+import { Equipment } from '../equipment.entity.js';
 
 @Entity('filter_holder')
 @Check(`holder_type IN (${sqlList(HolderType)})`)
@@ -12,7 +13,7 @@ export class FilterHolder {
 
   @OneToOne(() => Equipment, (equipment) => equipment.filter_holder, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column({ type: 'varchar', length: 255 })
   holder_type: HolderType;

@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { decimal_column } from '../../../common/decimal.transformer';
-import { Equipment } from '../equipment.entity';
+import type { Relation } from 'typeorm';
+import { decimal_column } from '../../../common/decimal.transformer.js';
+import { Equipment } from '../equipment.entity.js';
 
 // Reducer, flattener or barlow.
 @Entity('corrector')
@@ -10,7 +11,7 @@ export class Corrector {
 
   @OneToOne(() => Equipment, (equipment) => equipment.corrector, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equipment_id' })
-  equipment: Equipment;
+  equipment: Relation<Equipment>;
 
   @Column(decimal_column)
   focal_multiplier: number;
