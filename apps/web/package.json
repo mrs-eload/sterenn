@@ -13,13 +13,14 @@
     "fetch:horizons": "node scripts/fetch-horizons.mjs"
   },
   "dependencies": {
-    "@sterenn/shared": "1.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@iconify/react": "^6.0.2",
     "@mui/material": "^9.1.1",
     "@mui/x-data-grid": "^9.6.0",
     "@mui/x-date-pickers": "^9.6.0",
+    "@sterenn/shared": "1.0.0",
+    "@vercel/analytics": "^2.0.1",
     "astronomy-engine": "^2.1.19",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",

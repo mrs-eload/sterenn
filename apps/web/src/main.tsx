@@ -6,12 +6,14 @@ import './index.css'
 import { theme } from './theme/theme.ts'
 import router from "@app/routes/router.tsx";
 import { RouterProvider } from "react-router";
+import { Analytics } from '@vercel/analytics/react';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <RouterProvider router={router} />
+      <Analytics />
     </ThemeProvider>
   </StrictMode>,
 )
