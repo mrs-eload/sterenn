@@ -5,7 +5,7 @@ when a flag flips, edit it here in the same commit. This is the at-a-glance map;
 `docs/STATUS.md` holds the detailed state of the *current* subject.
 
 **Flags:** ✅ done · ⚙️ partial · ⬜ not started · n/a not applicable
-**Last updated:** 2026-06-20
+**Last updated:** 2026-10-23
 
 ## Subjects
 
@@ -59,6 +59,22 @@ sun/moon, but planets/DSO positioning needs the heavier lib. Local, no API.
 Pure geometry and math. The user's rig (Askar SQA55 + ASI585MC Pro) gives the
 sensor/focal-length constants. Local, no API.
 
+### 4b. Equipment and rigs _(shipped ✅)_
+
+| Piece | UI | Logic | API |
+|---|---|---|---|
+| Monorepo (`apps/web`, `apps/api`, `apps/shared`) | n/a | ✅ | — |
+| Shared enums, zod schemas, response types | n/a | ✅ | — |
+| Google sign-in + sessions | ✅ | ✅ live-verified | own API (NestJS) |
+| Equipment, thread sizes | ✅ | ✅ | own API (NestJS) |
+| Rigs + rig rules (`validateRig`, shared) | ✅ | ✅ | own API (NestJS) |
+
+The first persistent data, and the first backend: NestJS + TypeORM on
+PostgreSQL. Spec: ADR 0004. Screens built from the Claude Design kit
+(`ui_kits/equipment`). Open: hosting provider. Polish later: passband editor,
+tests. The rig tools of subject 4 (FOV, exposure) can now read real equipment
+specs from here.
+
 ### 5. Session planner _(full dashboard)_
 
 | Piece | UI | Logic | API |
@@ -70,11 +86,12 @@ of its own; inherits Open-Meteo from conditions.
 
 ## API summary
 
-Only **one external API in the whole app: Open-Meteo** (conditions weather),
-keyless and CORS-open. Everything else — twilight, moon, target positions, FOV,
-exposure — is **local computation** via suncalc / astronomy-engine / plain math.
-**No backend (NestJS) is needed** unless a future API requires a server-side
-proxy. None does so far.
+External APIs: **Open-Meteo** (conditions weather), keyless and CORS-open.
+Twilight, moon, target positions, FOV and exposure stay **local computation**
+via suncalc / astronomy-engine / plain math.
+
+Own API: **`apps/api`** (NestJS + TypeORM + PostgreSQL) for equipment, rigs and
+Google sign-in. See ADR 0004.
 
 ## Build order (recommended)
 

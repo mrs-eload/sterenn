@@ -1,0 +1,15 @@
+# Local development database only. Production uses whatever the host offers.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: sterenn
+      POSTGRES_PASSWORD: sterenn
+      POSTGRES_DB: sterenn
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

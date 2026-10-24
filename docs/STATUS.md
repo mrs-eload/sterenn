@@ -4,17 +4,19 @@ _Living document. Update it when a brick lands. The point: anyone (or any tool)
 opening this repo cold should know what exists, what's proven, and what's next
 without reading chat history._
 
-**Last updated:** 2026-06-22
+**Last updated:** 2026-10-23
 
 ## What sterenn is
 
 An astrophotography web app. Built **subject by subject** (one self-contained
-feature at a time). Stack: **React 19 + Vite + TypeScript**, **MUI** for UI
-(not yet installed), **NestJS only if a backend ever becomes necessary** — so
-far it hasn't.
+feature at a time). Since ADR 0004 it is an npm workspaces monorepo:
 
-First subject: **"tonight's conditions"** — Ouranos-like, but fixing Ouranos's
-core flaw (see below).
+- `apps/web`: **React 19 + Vite + TypeScript**, **MUI** for UI.
+- `apps/api`: **NestJS + TypeORM + PostgreSQL**, Google sign-in.
+- `apps/shared`: enums, zod schemas, response types, rig rules.
+
+Shipped subjects: **"tonight's conditions"** (Ouranos-like, but fixing
+Ouranos's core flaw, see below) and **"equipment and rigs"**.
 
 ## The pipeline (conditions module)
 
@@ -25,9 +27,9 @@ adaptForecast(res, {requestedModels})→ HourPoint[] per model [data/openMeteo] 
 analyzeNight(hourly, dark, config)   → NightAnalysis   [core/sky]   ✅ built, tested
 ```
 
-All four exist and are wired into the UI (`features/conditions/`). 16 unit tests
-pass (`npm test`); the data layer is now **verified against the live Open-Meteo
-API** (see ADR 0002).
+All four exist and are wired into the UI (`apps/web/src/features/conditions/`).
+16 unit tests pass (`npm test`); the data layer is **verified against the live
+Open-Meteo API** (see ADR 0002).
 
 ## The Ouranos fix (the whole reason this module exists)
 
@@ -53,7 +55,11 @@ See `docs/adr/0001` for the design, `docs/adr/0002` for the data layer as built.
 | `data/openMeteo` | ✅ Built, 4 tests, **live-verified** | Multi-model shape + slugs confirmed 2026-06-20. Dead slug `ecmwf_ifs04` replaced with `ecmwf_aifs025_single`. |
 | `features/conditions` | ✅ Built | MUI dark theme + `useTonight` hook + NightCard, ObservationWindowBar, SkyQualityCurve, HourlyTable, ModelPicker, LocationSearch (geocode a city or type coordinates). |
 | `data/openMeteo/geocoding` | ✅ Built, 12 tests, **live-verified** | City name → coords via Open-Meteo geocoding (no key). Pure `parseCoordinates` for typed lat/lon. Hit/miss shapes confirmed live 2026-06-22. |
-| Backend (NestJS) | ⬜ Not needed yet | Deferred until an API forces it. |
+| `apps/shared` | ✅ Built, no tests | Enums, zod schemas, response types, `validateRig` (the rig rules, used by API and web). |
+| `apps/api` auth | ✅ Built, **live-verified** | Google sign-in (ID token only, no client secret), single allowed account, SHA-256-hashed session cookie, 30-day sliding expiry, global guard. Real sign-in confirmed 2026-10-23. |
+| `apps/api` equipment + rigs | ✅ Built, no tests | `/equipment`, `/thread-sizes`, `/rigs` per ADR 0004 section 12. Initial migration applied on Postgres 17. |
+| `data/sterennApi` | ✅ Built | Fetch client with credentials; bodies are the shared types. |
+| `features/equipment` | ✅ Built, **runs end to end** | From the Claude Design kit (`ui_kits/equipment/index.html`, Rigs tab from `rigs-visual.html`): inventory tables + detail panel, add/edit dialog, rigs view with a side-view drawing of the optical chain (refractor or Cassegrain-style tube by optical design), rig editor with live checks, Google sign-in gate. |
 
 ## ⚠️ Known caveats / gotchas
 
@@ -72,14 +78,49 @@ See `docs/adr/0001` for the design, `docs/adr/0002` for the data layer as built.
    in Brittany was 1.1h → every model returned `reason: 'too-short'`. Working as
    designed.
 
+3. **Equipment and rigs have no automated tests.** Shared, API and the equipment
+   feature were verified by running them (migration, boot, 401/400 smoke tests,
+   real Google sign-in, the page in the browser), not by a test suite.
+
+4. **Rule b follows the ADR, not the design mock.** Thread matching counts any
+   thread of one chain part with any thread of the next. The Claude Design mock
+   matched only rear → front. Switching is one function in
+   `apps/shared/src/rules/validate-rig.ts`.
+
+5. **Passbands can't be edited in the UI yet.** The design's dialog has no
+   field for them; existing passbands are kept on save.
+
+6. **Node version.** `@nestjs/cli` 12 asks for Node ≥ 24.15; it ran on 24.13
+   with only an engine warning.
+
 ## Subject 1 (Conditions) — shipped
 
 The end-to-end conditions view is built and runs:
 `getDarkWindow → fetchForecast → adaptForecast → analyzeNight → describeNight`,
 wired by `features/conditions/hooks/useTonight.ts` and rendered by dumb
 components (NightCard, ObservationWindowBar, SkyQualityCurve, HourlyTable,
-ModelPicker) under an MUI dark theme (`src/theme.ts`). Verified end-to-end
-against the live API, `npm run build`/`lint`/`test` all green.
+ModelPicker) under an MUI dark theme. Verified end-to-end against the live API,
+`npm run build`/`lint`/`test` all green.
+
+## Equipment and rigs (ADR 0004) — shipped
+
+Done, in order:
+
+1. Monorepo: Vite app moved to `apps/web`, root npm workspaces.
+2. `apps/shared`: enums + zod schemas (+ later response types and `validateRig`).
+3. `apps/api` skeleton: NestJS + TypeORM, `common/`, `config/`.
+4. `AuthModule`: Google sign-in, sessions, guard.
+5. `EquipmentModule`: thread sizes, equipment + specs + threads.
+6. Rigs: entities, `RigValidator` (delegates to shared `validateRig`), `RigService`.
+7. Migration `1792783457511-Init` generated and applied; CHECK-change detection
+   verified (ADR 0004 "To verify").
+8. Frontend: `/equipment` page from the Claude Design kit.
+
+Running it locally: `docker compose up -d` in `apps/api`, fill `apps/api/.env`
+and `apps/web/.env.local`, then `npm run dev:api` and `npm run dev`. See README.
+
+Still open from ADR 0004: the hosting provider (and whether it installs from the
+repo root for one workspace).
 
 ## Next brick
 
@@ -88,10 +129,8 @@ suncalc (already a dependency). Build `core/moon` pure + tested first, then
 surface it (likely as a column/section inside the conditions view, as the
 roadmap notes it may start there before graduating to its own subject).
 
-Possible polish on Conditions before moving on: an `analyzeNight` config UI.
-Doesn't block shipping subject 1. (The location picker shipped 2026-06-22 —
-`LocationSearch` geocodes a typed city or accepts raw coordinates, via
-`data/openMeteo/geocoding`.)
+Possible polish: an `analyzeNight` config UI; a passband editor for filters;
+tests for `validateRig` and the API services.
 
 Keep components dumb: they render, they don't compute. All logic stays in
-`core/` and the hook.
+`core/`, `apps/shared` and the hook.

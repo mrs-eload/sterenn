@@ -1,0 +1,35 @@
+{
+  "name": "@sterenn/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/src/main.js",
+    "migration:generate": "nest build && typeorm migration:generate -d dist/src/config/data-source.js",
+    "migration:run": "nest build && typeorm migration:run -d dist/src/config/data-source.js",
+    "migration:revert": "nest build && typeorm migration:revert -d dist/src/config/data-source.js"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.10",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.2"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "@nestjs/typeorm": "^12.0.2",
+    "@sterenn/shared": "1.0.0",
+    "cookie-parser": "^1.4.7",
+    "google-auth-library": "^11.3.1",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^1.1.2",
+    "zod": "^4.6.7"
+  }
+}
