@@ -8,25 +8,27 @@ import { EquipmentType, validateRig, type EquipmentResponse, type RigResponse } 
 import IconifyIcon from '@app/components/base/IconifyIcon';
 import {
   optionLabel,
+  rigStats,
   rigStatus,
-  roleInChain,
   specRows,
   threadSizeShort,
   toRigPart,
+  TYPE_LABEL,
   type ThreadSizeIndex,
 } from '../format';
-import { border, fontMono, size, text, tone } from '../tokens';
+import { border, fontMono, radius, size, surface, text, tone } from '../tokens';
 import { CardTitle, Dot } from './primitives';
-import { OpticalChainDrawing } from './OpticalChainDrawing';
+import { OpticalTrain } from './OpticalTrain';
 
 const STATUS_COLOR = { danger: tone.signal400, warning: tone.amber400, success: tone.green500 };
 
-const section_title = { color: text.primary, fontWeight: 700, fontSize: size.md, mb: 1.75 } as const;
+const panel = { bgcolor: surface.panel, border: `1px solid ${border.default}`, borderRadius: radius.lg } as const;
+const section_title = { color: text.primary, fontWeight: 700, fontSize: size.md } as const;
 const row = {
   display: 'grid',
-  gridTemplateColumns: '120px minmax(0,1fr)',
+  gridTemplateColumns: '140px minmax(0,1fr)',
   gap: 1.5,
-  py: 1.125,
+  py: 1.25,
   borderTop: `1px solid ${border.subtle}`,
   fontSize: size.base,
 } as const;
@@ -63,10 +65,11 @@ export function RigsView({
   const links = rig ? validateRig(rig, parts).links : [];
   const focused = (focused_id && chain.find((item) => item.id === focused_id)) || chain[0];
 
-  const filter_count_by_holder = new Map<string, number>();
+  const filters_by_holder = new Map<string, EquipmentResponse[]>();
   rig?.filters.forEach((rig_filter) => {
-    if (rig_filter.holder_id) {
-      filter_count_by_holder.set(rig_filter.holder_id, (filter_count_by_holder.get(rig_filter.holder_id) ?? 0) + 1);
+    const filter = equipment_by_id.get(rig_filter.filter_id);
+    if (rig_filter.holder_id && filter) {
+      filters_by_holder.set(rig_filter.holder_id, [...(filters_by_holder.get(rig_filter.holder_id) ?? []), filter]);
     }
   });
 
@@ -118,7 +121,7 @@ export function RigsView({
 
       {rig && status && (
         <>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2.25, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2.25, flexWrap: 'wrap', mb: 3 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ color: STATUS_COLOR[status.tone], fontSize: size.sm, fontWeight: 600, mb: 0.75 }}>{status.label}</Box>
               <CardTitle>{rig.name}</CardTitle>
@@ -127,57 +130,55 @@ export function RigsView({
               control={<Switch checked={rig.is_current} onChange={(event) => onToggleCurrent(rig, event.target.checked)} />}
               label="Current rig"
             />
-            <Button variant="outlined" color="inherit" size="small" onClick={() => onEdit(rig)}>Edit rig</Button>
+            <Button variant="outlined" color="inherit" onClick={() => onEdit(rig)}>Edit rig</Button>
           </Box>
 
-          <Box sx={{ pt: 1 }}>
-            <OpticalChainDrawing
-              chain={chain}
-              links={links}
-              filter_count_by_holder={filter_count_by_holder}
-              sizes={sizes}
-              focused_id={focused?.id ?? null}
-              onFocus={setFocusedId}
-            />
+          <Box sx={{ ...panel, overflow: 'hidden' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', borderBottom: `1px solid ${border.default}` }}>
+              {rigStats(rig, equipment_by_id).map((stat, index) => (
+                <Box
+                  key={stat.label}
+                  sx={{ px: 2.75, py: 2.5, borderLeft: index ? `1px solid ${border.subtle}` : 'none', display: 'flex', flexDirection: 'column', gap: 0.5 }}
+                >
+                  <Box component="span" sx={{ color: text.secondary, fontSize: size.sm }}>{stat.label}</Box>
+                  <Box component="span" sx={{ color: text.primary, fontSize: size.xxl, fontWeight: 900, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+                    {stat.value}
+                  </Box>
+                  {stat.detail && <Box component="span" sx={{ color: text.muted, fontSize: size.sm }}>{stat.detail}</Box>}
+                </Box>
+              ))}
+            </Box>
+            <Box sx={{ px: 2.75, pt: 2.75, pb: 3.25 }}>
+              <Box sx={{ ...section_title, mb: 0.75 }}>Optical train</Box>
+              <OpticalTrain
+                chain={chain}
+                links={links}
+                filters_by_holder={filters_by_holder}
+                sizes={sizes}
+                focused_id={focused?.id ?? null}
+                onFocus={setFocusedId}
+              />
+            </Box>
           </Box>
 
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-              gap: '28px 48px',
-              borderTop: `1px solid ${border.default}`,
-              pt: 3,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))',
+              gap: 2.5,
+              mt: 2.5,
+              alignItems: 'start',
             }}
           >
-            <div>
-              <Box sx={section_title}>Optical chain</Box>
-              {chain.map((equipment, index) => {
-                const is_on = focused?.id === equipment.id;
-                return (
-                  <Box
-                    key={`${equipment.id}-${index}`}
-                    onClick={() => setFocusedId(equipment.id)}
-                    sx={{ display: 'grid', gridTemplateColumns: '32px minmax(0,1fr)', gap: 1.25, py: 1.125, borderTop: `1px solid ${border.subtle}`, cursor: 'pointer' }}
-                  >
-                    <Box component="span" sx={{ color: is_on ? tone.amber400 : text.muted, fontFamily: fontMono, fontSize: size.sm, fontWeight: 700, pt: '2px' }}>
-                      {String(index + 1).padStart(2, '0')}
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Box sx={{ color: is_on ? tone.amber400 : text.primary, fontWeight: 600, fontSize: size.base }}>{equipment.model}</Box>
-                      <Box sx={{ color: text.secondary, fontSize: size.sm }}>
-                        {roleInChain(equipment.type, index, chain.length)} · {equipment.manufacturer}
-                      </Box>
-                    </Box>
-                  </Box>
-                );
-              })}
-            </div>
-
-            <div>
-              <Box sx={section_title}>{focused ? focused.model : 'Element'}</Box>
+            <Box sx={{ ...panel, px: 2.75, pt: 2.5, pb: 1.5 }}>
               {focused && (
                 <>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 1.25, mb: 1.75 }}>
+                    <Box component="span" sx={section_title}>{focused.model}</Box>
+                    <Box component="span" sx={{ color: text.secondary, fontSize: size.sm }}>
+                      {TYPE_LABEL[focused.type]} · {focused.manufacturer}
+                    </Box>
+                  </Box>
                   {specRows(focused)
                     .filter(([, value]) => value !== null && value !== '')
                     .map(([label, value]) => (
@@ -196,11 +197,11 @@ export function RigsView({
                   ))}
                 </>
               )}
-            </div>
+            </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+            <Box sx={{ ...panel, px: 2.75, pt: 2.5, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 3.25 }}>
               <div>
-                <Box sx={section_title}>Mount and guiding</Box>
+                <Box sx={{ ...section_title, mb: 1.75 }}>Mount and guiding</Box>
                 {(
                   [
                     ['Mount', rig.mount_id, true],
@@ -221,8 +222,8 @@ export function RigsView({
               </div>
 
               <div>
-                <Box sx={section_title}>Filters</Box>
-                {rig.filters.length === 0 && <Box sx={{ color: text.muted, fontSize: size.base }}>None</Box>}
+                <Box sx={{ ...section_title, mb: 1.75 }}>Filters</Box>
+                {rig.filters.length === 0 && <Box sx={{ color: text.muted, fontSize: size.base, pb: 1 }}>None</Box>}
                 {rig.filters.map((rig_filter) => {
                   const filter = equipment_by_id.get(rig_filter.filter_id);
                   const holder = rig_filter.holder_id ? equipment_by_id.get(rig_filter.holder_id) : undefined;
@@ -230,7 +231,7 @@ export function RigsView({
                   return (
                     <Box key={rig_filter.filter_id} sx={row}>
                       <Box component="span" sx={{ ...row_label, display: 'flex', alignItems: 'center', gap: 1, pt: 0 }}>
-                        <Box component="span" sx={{ width: 4, height: 14, bgcolor: tone.cyan300 }} />
+                        <Box component="span" sx={{ width: 3, height: 12, bgcolor: tone.cyan300 }} />
                         {optionLabel(filter.specs.filter_type)}
                       </Box>
                       <span>
@@ -247,15 +248,15 @@ export function RigsView({
               </div>
 
               <div>
-                <Box sx={section_title}>Checks</Box>
+                <Box sx={{ ...section_title, mb: 1.75 }}>Checks</Box>
                 {rig.problems.errors.length + rig.problems.warnings.length === 0 ? (
-                  <Box sx={{ color: tone.green500, fontSize: size.base }}>Every connection and filter checks out.</Box>
+                  <Box sx={{ color: tone.green500, fontSize: size.base, pb: 1 }}>Every connection and filter checks out.</Box>
                 ) : (
                   [
                     ...rig.problems.errors.map((message) => ['Error', message] as const),
                     ...rig.problems.warnings.map((message) => ['Warning', message] as const),
                   ].map(([level, message], index) => (
-                    <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '72px minmax(0,1fr)', gap: 1.25, py: 1.125, borderTop: `1px solid ${border.subtle}`, fontSize: size.base }}>
+                    <Box key={index} sx={{ ...row, gridTemplateColumns: '72px minmax(0,1fr)' }}>
                       <Box component="span" sx={{ color: level === 'Error' ? tone.signal400 : tone.amber400, fontSize: size.sm, pt: '2px' }}>{level}</Box>
                       <Box component="span" sx={{ color: text.primary }}>{message}</Box>
                     </Box>

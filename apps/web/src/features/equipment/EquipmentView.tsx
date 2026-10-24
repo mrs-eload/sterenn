@@ -74,14 +74,28 @@ export function EquipmentView() {
   };
 
   return (
-    <Box sx={{ px: { xs: 2, md: 5 }, pt: 3.5, pb: 7.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2.5, mb: 1 }}>
-        <Box sx={{ flex: 1 }}>
+    // No outer padding: MainLayout's <main> already pads every page.
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', columnGap: 5, rowGap: 2, mb: 3 }}>
+        <div>
           <PageTitle>Equipment</PageTitle>
           <Box sx={{ color: text.muted, fontSize: size.sm, mt: 0.75 }}>
             {data.equipment.length} pieces · {data.rigs.length} rigs · {current_count} current
           </Box>
-        </Box>
+        </div>
+        <Tabs
+          value={tab}
+          onChange={(_, value: TabName) => {
+            setTab(value);
+            setRigEditor(null);
+            // Coming back to Rigs always lands on the current rig again.
+            if (value === 'rigs') setSelectedRigId(null);
+          }}
+          sx={{ flex: 1, minHeight: 0 }}
+        >
+          <Tab value="rigs" label="Rigs" />
+          <Tab value="inventory" label="Inventory" />
+        </Tabs>
         {tab === 'inventory' ? (
           <Button variant="contained" startIcon={<IconifyIcon icon="tabler:plus" />} onClick={() => setEquipmentDialog('new')}>
             Add equipment
@@ -94,20 +108,6 @@ export function EquipmentView() {
           )
         )}
       </Box>
-
-      <Tabs
-        value={tab}
-        onChange={(_, value: TabName) => {
-          setTab(value);
-          setRigEditor(null);
-          // Coming back to Rigs always lands on the current rig again.
-          if (value === 'rigs') setSelectedRigId(null);
-        }}
-        sx={{ mb: 3 }}
-      >
-        <Tab value="rigs" label="Rigs" />
-        <Tab value="inventory" label="Inventory" />
-      </Tabs>
 
       {(data.load_error || action_error) && (
         <Box sx={{ color: tone.signal400, fontSize: size.sm, mb: 2 }}>{data.load_error ?? action_error}</Box>

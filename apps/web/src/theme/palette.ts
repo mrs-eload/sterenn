@@ -26,7 +26,9 @@ declare module '@mui/material/styles' {
 const palette: PaletteOptions = {
   verdict: { clear: green[500], cloud: amber[500], precip: red[500] },
   neutral: { lighter: grey[100], light: grey[200], main: grey[300], dark: grey[400], darker: grey[600] },
-  primary: { main: amber[500], light: amber[400], dark: amber[600] },
+  // Dark text on amber (design token --text-on-accent): white on amber-500 is
+  // about 2.3:1, too low to read.
+  primary: { main: amber[500], light: amber[400], dark: amber[600], contrastText: '#1a1206' },
   secondary: { lighter: cyan[200], light: cyan[400], main: cyan[500], dark: cyan[600], darker: cyan[700] },
   info: {
     main: blue[600],

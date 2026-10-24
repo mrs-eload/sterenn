@@ -306,10 +306,10 @@ function DetailPanel({
       )}
 
       <Box sx={{ display: 'flex', gap: 1.25, mt: 2.75 }}>
-        <Button variant="outlined" color="inherit" size="small" sx={{ flex: 1 }} onClick={() => onEdit(equipment)}>
+        <Button variant="outlined" color="inherit" sx={{ flex: 1 }} onClick={() => onEdit(equipment)}>
           Edit
         </Button>
-        <Button variant="text" size="small" sx={{ color: tone.signal400 }} onClick={() => onDelete(equipment, used_in)}>
+        <Button variant="text" sx={{ color: tone.signal400 }} onClick={() => onDelete(equipment, used_in)}>
           Delete
         </Button>
       </Box>

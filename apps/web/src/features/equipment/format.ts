@@ -7,6 +7,7 @@ import {
   type RigResponse,
   type ThreadSizeResponse,
 } from '@sterenn/shared';
+import { effectiveFocalLength, fieldOfView, imageScale } from '@app/core/optics/imaging';
 import { sensorSize } from '@app/core/optics/sensorSize';
 
 // Pure display helpers for the equipment screens: labels, summaries and the
@@ -244,6 +245,53 @@ export function roleInRig(rig: RigResponse, equipment_id: string): string | null
   if (index > 0) return `Chain · position ${index + 1}`;
   if (rig.filters.some((rig_filter) => rig_filter.filter_id === equipment_id)) return 'Filter';
   return null;
+}
+
+export type RigStat = { label: string; value: string; detail: string | null };
+
+// Degrees above 1°, arcminutes below: 2.4° but 38′.
+function angleLabel(degrees: number): string {
+  return degrees >= 1 ? `${degrees.toFixed(1)}°` : `${Math.round(degrees * 60)}′`;
+}
+
+// The figures strip above the optical train. Optics need a telescope at the
+// front of the chain, image scale and field a camera at the back; payload is
+// always shown.
+export function rigStats(rig: RigResponse, equipment_by_id: ReadonlyMap<string, EquipmentResponse>): RigStat[] {
+  const chain = rig.chain.map((id) => equipment_by_id.get(id)).filter((item) => item !== undefined);
+  const stats: RigStat[] = [];
+  const scope = chain[0]?.type === EquipmentType.TELESCOPE ? chain[0] : null;
+  const last = chain[chain.length - 1];
+  const camera = chain.length > 1 && last?.type === EquipmentType.CAMERA ? last : null;
+
+  if (scope) {
+    const multipliers = chain.flatMap((item) => (item.type === EquipmentType.CORRECTOR ? [item.specs.focal_multiplier] : []));
+    const focal_length = effectiveFocalLength(scope.specs.focal_length_mm, multipliers);
+    stats.push({
+      label: 'Focal length',
+      value: `${Math.round(focal_length)} mm`,
+      detail: multipliers.length > 0 ? `native ${scope.specs.focal_length_mm} mm` : null,
+    });
+    stats.push({ label: 'Focal ratio', value: `f/${(focal_length / scope.specs.aperture_mm).toFixed(1)}`, detail: null });
+    if (camera) {
+      const { pixel_size_um, resolution_x, resolution_y } = camera.specs;
+      const fov = fieldOfView(pixel_size_um, resolution_x, resolution_y, focal_length);
+      stats.push({ label: 'Image scale', value: `${imageScale(pixel_size_um, focal_length).toFixed(2)}″/px`, detail: null });
+      stats.push({ label: 'Field of view', value: `${angleLabel(fov.width_deg)} × ${angleLabel(fov.height_deg)}`, detail: null });
+    }
+  }
+
+  // Everything the mount carries: the chain, guiding and the filters.
+  const carried = [...rig.chain, rig.guide_telescope_id, rig.guide_camera_id, ...rig.filters.map((item) => item.filter_id)];
+  const grams_total = carried.reduce((sum, id) => sum + ((id && equipment_by_id.get(id)?.weight_g) || 0), 0);
+  const mount = rig.mount_id ? equipment_by_id.get(rig.mount_id) : undefined;
+  const capacity_g = mount?.type === EquipmentType.MOUNT ? mount.specs.payload_capacity_g : null;
+  stats.push({
+    label: 'Payload',
+    value: `${(grams_total / 1000).toFixed(1)} kg`,
+    detail: mount && capacity_g ? `of ${Number((capacity_g / 1000).toFixed(1))} kg on ${mount.model}` : null,
+  });
+  return stats;
 }
 
 export function roleInChain(type: EquipmentType, index: number, length: number): string {

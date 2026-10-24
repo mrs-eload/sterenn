@@ -56,6 +56,9 @@ export const radius = { sm: '8px', md: '12px', lg: '16px', xl: '20px' };
 
 export const fontMono = "'IBM Plex Mono', ui-monospace, 'SF Mono', monospace";
 
-export const size = { xs: 12, sm: 13, base: 15, md: 17, lg: 20, xl: 24, xxl: 32 };
+// One step above the design's --text-* scale: the design sets body text in
+// Public Sans, the app sets everything in Region Bretagne, whose small x-height
+// makes the same pixel size read about two sizes smaller.
+export const size = { xs: 14, sm: 15, base: 17, md: 19, lg: 22, xl: 26, xxl: 34 };
 
 export const trackingWide = '0.06em';

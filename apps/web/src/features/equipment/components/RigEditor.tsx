@@ -207,7 +207,7 @@ export function RigEditor({
         title="Optical chain"
         hint="Front to back. Starts with the main telescope, ends with the main camera. Thread mismatches are warnings and don't block saving."
         action={
-          <Button variant="outlined" color="inherit" size="small" startIcon={<IconifyIcon icon="tabler:plus" />} onClick={addElement} disabled={ofTypes(CHAIN_TYPES).length === 0}>
+          <Button variant="outlined" color="inherit" startIcon={<IconifyIcon icon="tabler:plus" />} onClick={addElement} disabled={ofTypes(CHAIN_TYPES).length === 0}>
             Add element
           </Button>
         }
@@ -266,7 +266,7 @@ export function RigEditor({
         title="Filters"
         hint="Optional. Say where each filter sits: in a filter holder, screwed onto another element of the chain, or leave it unspecified."
         action={
-          <Button variant="outlined" color="inherit" size="small" startIcon={<IconifyIcon icon="tabler:plus" />} onClick={addFilter} disabled={free_filters.length === 0}>
+          <Button variant="outlined" color="inherit" startIcon={<IconifyIcon icon="tabler:plus" />} onClick={addFilter} disabled={free_filters.length === 0}>
             Add filter
           </Button>
         }

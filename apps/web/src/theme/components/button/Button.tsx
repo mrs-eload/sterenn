@@ -10,9 +10,13 @@ const Button: Components<Omit<Theme, '@app/components'>>['MuiButton'] = {
       borderRadius: theme.shape.borderRadius,
       textTransform: 'initial',
       letterSpacing: 0.5,
-      fontWeight: 500,
+      // Bold, as in the design's Button: at 500 the dark text on amber is too thin to read.
+      fontWeight: 700,
     }),
-    contained: ({ theme }) => ({
+    // root sets light text for outlined/text buttons on the dark canvas; a
+    // filled button takes its palette's contrastText instead.
+    contained: ({ theme, ownerState }) => ({
+      ...(ownerState.color && ownerState.color !== 'inherit' && { color: theme.palette[ownerState.color].contrastText }),
       '&.Mui-disabled': {
         color: theme.palette.text.secondary,
         background: theme.palette.text.disabled,

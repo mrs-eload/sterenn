@@ -321,7 +321,6 @@ export function EquipmentDialog({
             <Button
               variant="text"
               color="inherit"
-              size="small"
               startIcon={<IconifyIcon icon="tabler:plus" />}
               onClick={() =>
                 setThreads((rows) => [
@@ -363,11 +362,19 @@ export function EquipmentDialog({
                   </IconButton>
                 </Box>
                 {new_size_row === index && (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 1.25, alignItems: 'center', mt: 1.25, p: 1.5, borderRadius: radius.md, bgcolor: surface.inset, border: `1px solid ${border.subtle}` }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 1.25, alignItems: 'end', mt: 1.25, p: 1.5, borderRadius: radius.md, bgcolor: surface.inset, border: `1px solid ${border.subtle}` }}>
                     <Field label="Diameter (mm)" type="number" value={new_size.diameter_mm} onChange={(event) => setNewSize((size_input) => ({ ...size_input, diameter_mm: event.target.value }))} />
                     <Field label="Pitch (mm)" type="number" value={new_size.pitch_mm} onChange={(event) => setNewSize((size_input) => ({ ...size_input, pitch_mm: event.target.value }))} />
                     <Field label={<Labelled label="Name" optional />} placeholder="T2" value={new_size.name} onChange={(event) => setNewSize((size_input) => ({ ...size_input, name: event.target.value }))} />
-                    <Button variant="outlined" color="inherit" size="small" onClick={addThreadSize}>Add size</Button>
+                    {/* Same padding, font size and line height as Field's input, so it lines up at the same height. */}
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      onClick={addThreadSize}
+                      sx={{ px: 2.25, py: '10px', fontSize: size.base, lineHeight: 1.5, borderRadius: radius.md, whiteSpace: 'nowrap' }}
+                    >
+                      Add size
+                    </Button>
                   </Box>
                 )}
               </Box>
