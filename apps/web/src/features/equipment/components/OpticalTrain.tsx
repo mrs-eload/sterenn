@@ -4,8 +4,8 @@ import { summary, threadAt, threadSizeLabel, threadSizeShort, TYPE_LABEL, type T
 import { border, fontMono, size, surface, text, tone } from '../tokens';
 
 // The optical train as a row of tiles, light entering left (design:
-// rigs-visual.html). The telescope and correctors keep a fixed width; the
-// parts behind them share the rest.
+// rigs-visual.html). Every part gets an equal share of the width: no lengths
+// are stored, so a wider tile would suggest a size that isn't known.
 
 const TILE_HEIGHT = 132;
 
@@ -45,8 +45,6 @@ function Tile({
   sizes: ThreadSizeIndex;
   onClick: () => void;
 }) {
-  const is_fixed = equipment.type === EquipmentType.TELESCOPE || equipment.type === EquipmentType.CORRECTOR;
-  const width = equipment.type === EquipmentType.TELESCOPE ? 220 : 140;
   const link_color = link ? tone.green500 : tone.amber400;
   return (
     <Box
@@ -54,8 +52,8 @@ function Tile({
       title={equipment.model}
       sx={{
         position: 'relative',
-        flex: is_fixed ? `0 0 ${width}px` : '1 1 0',
-        minWidth: is_fixed ? width : 112,
+        flex: '1 1 0',
+        minWidth: 140,
         height: TILE_HEIGHT,
         ml: index ? '-1px' : 0,
         zIndex: is_focused ? 2 : 1,

@@ -16,7 +16,13 @@ const Button: Components<Omit<Theme, '@app/components'>>['MuiButton'] = {
     // root sets light text for outlined/text buttons on the dark canvas; a
     // filled button takes its palette's contrastText instead.
     contained: ({ theme, ownerState }) => ({
-      ...(ownerState.color && ownerState.color !== 'inherit' && { color: theme.palette[ownerState.color].contrastText }),
+      ...(ownerState.color &&
+        ownerState.color !== 'inherit' && {
+          color: theme.palette[ownerState.color].contrastText,
+          // ButtonBase clears every hover background to transparent; a filled
+          // button must keep its fill, lightened as in the design.
+          '&:hover': { backgroundColor: theme.palette[ownerState.color].light },
+        }),
       '&.Mui-disabled': {
         color: theme.palette.text.secondary,
         background: theme.palette.text.disabled,
